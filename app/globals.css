@@ -1,26 +1,162 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --background: #fefefe;
+  --foreground: #1a1a1a;
+  --primary: #fbbf24;
+  --primary-hover: #f59e0b;
+  --primary-light: #fef3c7;
+  --primary-dark: #d97706;
+  --secondary: #6b7280;
+  --secondary-light: #f8fafc;
+  --accent: #f59e0b;
+  --accent-light: #fef3c7;
+  --accent-dark: #d97706;
+  --border: #e2e8f0;
+  --card-bg: #ffffff;
+  --text-muted: #64748b;
+  --text-primary: #0f172a;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a;
+    --foreground: #f8fafc;
+    --primary: #fbbf24;
+    --primary-hover: #f59e0b;
+    --primary-light: #451a03;
+    --primary-dark: #d97706;
+    --secondary: #94a3b8;
+    --secondary-light: #1e293b;
+    --accent: #f59e0b;
+    --accent-light: #451a03;
+    --accent-dark: #d97706;
+    --border: #334155;
+    --card-bg: #1e293b;
+    --text-muted: #94a3b8;
+    --text-primary: #f1f5f9;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Line clamp utilities */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Custom utility classes for the vibrant yellow-gold theme */
+.bg-background {
+  background-color: var(--background);
+}
+
+.bg-primary {
+  background-color: var(--primary);
+}
+
+.bg-primary-hover:hover {
+  background-color: var(--primary-hover);
+}
+
+.bg-primary-light {
+  background-color: var(--primary-light);
+}
+
+.bg-secondary-light {
+  background-color: var(--secondary-light);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.text-secondary {
+  color: var(--secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-text-primary {
+  color: var(--text-primary);
+}
+
+.border-custom {
+  border-color: var(--border);
+}
+
+.bg-card {
+  background-color: var(--card-bg);
+}
+
+/* Enhanced rounded corners and shadows */
+.rounded-xl {
+  border-radius: 1rem;
+}
+
+.rounded-2xl {
+  border-radius: 1.5rem;
+}
+
+.rounded-3xl {
+  border-radius: 2rem;
+}
+
+.shadow-glow {
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.15);
+}
+
+.shadow-glow-hover:hover {
+  box-shadow: 0 8px 30px rgba(251, 191, 36, 0.25);
+}
+
+.shadow-card {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-card-hover:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Gradient backgrounds */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+}
+
+.bg-gradient-card {
+  background: linear-gradient(135deg, var(--card-bg) 0%, var(--secondary-light) 100%);
+}
+
+/* Enhanced transitions */
+.transition-all {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-transform {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover effects */
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
 }

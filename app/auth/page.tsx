@@ -1,0 +1,44 @@
+'use client'
+import { Auth } from '@supabase/auth-ui-react'
+import { ThemeSupa } from '@supabase/auth-ui-shared'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+
+export default function AuthPage() {
+  const { user } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard')
+    }
+  }, [user, router])
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light via-background to-secondary-light p-4">
+      <div className="max-w-md w-full space-y-8 p-10 bg-gradient-card rounded-3xl shadow-glow border border-custom">
+        <div className="text-center">
+          <img src="/FullImage_clickMemory.png" alt="ClickMemory logo" className="mx-auto mb-4 w-20 h-20 rounded-2xl shadow-glow" />
+          <h2 className="text-4xl font-bold text-primary mb-2">ClickMemory</h2>
+          <p className="text-secondary text-lg">Sign in to manage your snippets</p>
+        </div>
+        <Auth
+          supabaseClient={supabase}
+          appearance={{ 
+            theme: ThemeSupa,
+            className: {
+              button: 'px-6 py-3 rounded-2xl bg-gradient-primary hover:bg-primary-hover text-white font-semibold shadow-glow hover-lift transition-all',
+              input: 'rounded-xl border-custom bg-card text-text-primary px-4 py-3 shadow-card focus:ring-2 focus:ring-primary focus:border-primary transition-all',
+              label: 'text-text-primary font-medium',
+              anchor: 'text-primary hover:text-primary-hover transition-colors'
+            }
+          }}
+          providers={[]}
+          redirectTo={`${window.location.origin}/dashboard`}
+        />
+      </div>
+    </div>
+  )
+} 
