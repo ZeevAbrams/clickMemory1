@@ -3,18 +3,25 @@ import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 
 export default function AuthPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     if (user) {
-      router.push('/dashboard')
+      // Check if user came from an invitation page
+      const returnTo = searchParams.get('returnTo')
+      if (returnTo) {
+        router.push(returnTo)
+      } else {
+        router.push('/dashboard')
+      }
     }
-  }, [user, router])
+  }, [user, router, searchParams])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light via-background to-secondary-light p-4">

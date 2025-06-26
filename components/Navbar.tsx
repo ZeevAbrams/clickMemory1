@@ -1,6 +1,6 @@
 'use client'
 import { useAuth } from '@/contexts/AuthContext'
-import { LogOut, Plus } from 'lucide-react'
+import { LogOut, Plus, Users } from 'lucide-react'
 import Link from 'next/link'
 
 export default function Navbar() {
@@ -10,11 +10,20 @@ export default function Navbar() {
     <nav className="bg-card shadow-card border-b border-custom backdrop-blur-sm">
       <div className="container mx-auto px-6">
         <div className="flex justify-between items-center h-20">
-          <Link href="/dashboard" className="text-2xl font-bold text-primary hover:text-primary-hover transition-colors">
-            🧠 ClickMemory
+          <Link href="/dashboard" className="flex items-center space-x-3 text-2xl font-bold text-primary hover:text-primary-hover transition-colors">
+            <img src="/FullImage_clickMemory.png" alt="ClickMemory Logo" className="h-10 w-10 object-contain" />
+            <span>ClickMemory</span>
           </Link>
           
           <div className="flex items-center space-x-6">
+            <Link
+              href="/dashboard/shared"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-secondary hover:text-primary hover:bg-primary-light rounded-xl transition-all"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Shared With Me
+            </Link>
+            
             <Link
               href="/dashboard/new"
               className="inline-flex items-center px-6 py-3 border border-transparent rounded-2xl shadow-glow text-sm font-semibold text-white bg-gradient-primary hover:bg-primary-hover hover-lift transition-all"
