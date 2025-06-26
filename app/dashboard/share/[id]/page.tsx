@@ -86,6 +86,7 @@ export default function ShareSnippetPage() {
 
       if (userError || !userData) {
         alert('User not found with that email address')
+        setSharing(false)
         return
       }
 
@@ -101,6 +102,8 @@ export default function ShareSnippetPage() {
       if (shareError) {
         if (shareError.code === '23505') { // Unique constraint violation
           alert('Snippet is already shared with this user')
+          setSharing(false)
+          return
         } else {
           throw shareError
         }

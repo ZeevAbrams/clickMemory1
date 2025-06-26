@@ -1,5 +1,6 @@
 import ProtectedRoute from '@/components/ProtectedRoute'
 import Navbar from '@/components/Navbar'
+import PendingSharesNotification from '@/components/PendingSharesNotification'
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,7 @@ export default function DashboardLayout({
         <main className="container mx-auto px-6 py-10">
           {children}
         </main>
+        <PendingSharesNotification />
       </div>
     </ProtectedRoute>
   )

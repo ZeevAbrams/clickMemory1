@@ -2,9 +2,24 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { LogOut, Plus, Users } from 'lucide-react'
 import Link from 'next/link'
+import { useState } from 'react'
 
 export default function Navbar() {
   const { user, signOut } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
+
+  const handleSignOut = async () => {
+    try {
+      setIsSigningOut(true)
+      console.log('Signing out...')
+      await signOut()
+      console.log('Sign out successful')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
 
   return (
     <nav className="bg-card shadow-card border-b border-custom backdrop-blur-sm">
@@ -35,11 +50,12 @@ export default function Navbar() {
             <span className="text-sm text-secondary font-medium">{user?.email}</span>
             
             <button
-              onClick={signOut}
-              className="inline-flex items-center px-4 py-2 border border-custom rounded-xl text-sm font-medium text-secondary bg-card hover:bg-secondary-light hover-lift transition-all shadow-card"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              className="inline-flex items-center px-4 py-2 border border-custom rounded-xl text-sm font-medium text-secondary bg-card hover:bg-secondary-light hover-lift transition-all shadow-card disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+              {isSigningOut ? 'Signing Out...' : 'Sign Out'}
             </button>
           </div>
         </div>

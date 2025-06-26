@@ -1,17 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
-import { CheckCircle, AlertCircle, Copy, ExternalLink } from 'lucide-react'
+import { CheckCircle, AlertCircle, Copy } from 'lucide-react'
 import Link from 'next/link'
-
-// Create a regular client for user operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 interface PendingShare {
   id: string
@@ -25,15 +18,13 @@ export default function InvitePage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { user: authUser, loading: authLoading } = useAuth()
+  const { user: authUser } = useAuth()
   
   const [snippet, setSnippet] = useState<Snippet | null>(null)
   const [pendingShare, setPendingShare] = useState<PendingShare | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [accepting, setAccepting] = useState(false)
 
   const snippetId = params.id as string
   const email = searchParams.get('email')
@@ -47,17 +38,6 @@ export default function InvitePage() {
 
     fetchInvitationData()
   }, [snippetId, email])
-
-  // Check for user changes (e.g., after signup)
-  useEffect(() => {
-    if (authUser && !user) {
-      setUser(authUser)
-      // If we have snippet data but user just signed up, try to accept invitation
-      if (snippet && pendingShare && !accepting) {
-        handleAcceptInvitation()
-      }
-    }
-  }, [authUser, user, snippet, pendingShare, accepting])
 
   const fetchInvitationData = async () => {
     try {
@@ -79,51 +59,11 @@ export default function InvitePage() {
       setSnippet(data.snippet)
       setPendingShare(data.pendingShare)
 
-      // Check if user is already logged in
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      setUser(currentUser)
-
     } catch (error) {
       console.error('Error fetching invitation data:', error)
       setError('Failed to load invitation')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleAcceptInvitation = async () => {
-    if (!user || !pendingShare) return
-
-    setAccepting(true)
-    try {
-      // Create actual share
-      const { error: shareError } = await supabase
-        .from('shared_snippets')
-        .insert([{
-          snippet_id: snippetId,
-          shared_with_user_id: user.id,
-          permission: 'view' // Default to view permission for invitations
-        }])
-
-      if (shareError) {
-        console.error('Error creating share:', shareError)
-        setError('Failed to accept invitation')
-        return
-      }
-
-      // Delete pending share
-      await supabase
-        .from('pending_shares')
-        .delete()
-        .eq('id', pendingShare.id)
-
-      // Redirect to shared snippets
-      router.push('/dashboard/shared')
-    } catch (error) {
-      console.error('Error accepting invitation:', error)
-      setError('Failed to accept invitation')
-    } finally {
-      setAccepting(false)
     }
   }
 
@@ -219,9 +159,9 @@ export default function InvitePage() {
             </div>
           </div>
 
-          {!user ? (
+          {!authUser ? (
             <div className="text-center space-y-4">
-              <p className="text-secondary">To accept this invitation and save this snippet to your account:</p>
+              <p className="text-secondary">To save this snippet to your account and access it later:</p>
               <button
                 onClick={() => router.push(`/auth?returnTo=${encodeURIComponent(window.location.href)}`)}
                 className="bg-gradient-primary text-white px-6 py-3 rounded-2xl hover:bg-primary-hover transition-all font-semibold shadow-glow"
@@ -231,28 +171,20 @@ export default function InvitePage() {
             </div>
           ) : (
             <div className="text-center space-y-4">
-              <p className="text-secondary">You're logged in as <strong>{user.email}</strong></p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={handleAcceptInvitation}
-                  disabled={accepting}
-                  className="bg-gradient-primary text-white px-6 py-3 rounded-2xl hover:bg-primary-hover transition-all font-semibold shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {accepting ? 'Accepting...' : 'Accept Invitation'}
-                </button>
-                <button
-                  onClick={() => router.push('/dashboard/shared')}
-                  className="bg-card text-secondary px-6 py-3 rounded-2xl border border-custom hover:bg-secondary-light transition-all font-semibold shadow-card"
-                >
-                  View All Shared Snippets
-                </button>
-              </div>
+              <p className="text-secondary">You're logged in as <strong>{authUser.email}</strong></p>
+              <p className="text-secondary">This snippet will be automatically added to your "Shared With Me" section when you visit your dashboard.</p>
+              <button
+                onClick={() => router.push('/dashboard/shared')}
+                className="bg-gradient-primary text-white px-6 py-3 rounded-2xl hover:bg-primary-hover transition-all font-semibold shadow-glow"
+              >
+                Go to Dashboard
+              </button>
             </div>
           )}
         </div>
 
         <div className="bg-card rounded-3xl shadow-card border border-custom p-6">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">What happens when you accept?</h3>
+          <h3 className="text-lg font-semibold text-text-primary mb-4">What happens when you sign up?</h3>
           <ul className="space-y-2 text-secondary">
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5 flex-shrink-0" />
@@ -264,7 +196,7 @@ export default function InvitePage() {
             </li>
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5 flex-shrink-0" />
-              <span>The invitation will be removed from pending shares</span>
+              <span>The invitation will be automatically processed</span>
             </li>
           </ul>
         </div>

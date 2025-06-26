@@ -4,13 +4,14 @@ import { supabase } from '@/lib/supabase'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import SnippetCard from '@/components/SnippetCard'
-import { Search } from 'lucide-react'
+import { Search, RefreshCw } from 'lucide-react'
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, checkPendingShares } = useAuth()
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [checkingPending, setCheckingPending] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -64,6 +65,19 @@ export default function Dashboard() {
     }
   }
 
+  const handleCheckPendingShares = async () => {
+    setCheckingPending(true)
+    try {
+      await checkPendingShares()
+      // Refresh snippets after checking pending shares
+      await fetchSnippets()
+    } catch (error) {
+      console.error('Error checking pending shares:', error)
+    } finally {
+      setCheckingPending(false)
+    }
+  }
+
   const filteredSnippets = snippets.filter(snippet =>
     snippet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     snippet.content.toLowerCase().includes(searchTerm.toLowerCase())
@@ -84,15 +98,26 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold text-text-primary mb-2">My Snippets</h1>
           <p className="text-secondary text-lg">Store and organize your thoughts</p>
         </div>
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted h-5 w-5" />
-          <input
-            type="text"
-            placeholder="Search snippets..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-12 pr-6 py-4 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted shadow-card w-full lg:w-80 transition-all"
-          />
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleCheckPendingShares}
+            disabled={checkingPending}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-secondary hover:text-primary hover:bg-primary-light rounded-xl transition-all disabled:opacity-50"
+            title="Check for pending shared snippets"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${checkingPending ? 'animate-spin' : ''}`} />
+            {checkingPending ? 'Checking...' : 'Check Pending'}
+          </button>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search snippets..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-12 pr-6 py-4 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted shadow-card w-full lg:w-80 transition-all"
+            />
+          </div>
         </div>
       </div>
 

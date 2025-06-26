@@ -22,6 +22,7 @@ export interface PendingShare {
   email: string
   permission: 'view' | 'edit'
   created_at: string
+  expires_at: string
 }
 
 export interface Profile {
