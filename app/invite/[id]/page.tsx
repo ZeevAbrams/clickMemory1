@@ -41,8 +41,6 @@ export default function InvitePage() {
 
   const fetchInvitationData = async () => {
     try {
-      console.log('Fetching invitation data for snippet:', snippetId, 'email:', email)
-      
       // Use API route to fetch invitation data
       const response = await fetch(`/api/invitation/${snippetId}?email=${encodeURIComponent(email!)}`)
       
@@ -54,7 +52,6 @@ export default function InvitePage() {
       }
 
       const data = await response.json()
-      console.log('Invitation data received:', data)
       
       setSnippet(data.snippet)
       setPendingShare(data.pendingShare)

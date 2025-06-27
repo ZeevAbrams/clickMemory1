@@ -31,11 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Check for pending shares when user signs up
   const checkPendingShares = async (user: User) => {
     try {
-      console.log('=== CHECKING PENDING SHARES ===')
-      console.log('User object:', user)
-      console.log('User email:', user.email)
-      console.log('User ID:', user.id)
-      
       // Add a small delay to ensure user profile is fully created
       await new Promise(resolve => setTimeout(resolve, 1000))
       
@@ -45,8 +40,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('id', user.id)
         .single()
-
-      console.log('Profile lookup result:', { profile, profileError })
 
       if (profileError || !profile) {
         console.error('Profile not found or error:', profileError)
@@ -64,30 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      console.log('Pending shares query result:', pendingShares)
-      console.log('Query used email:', user.email)
-
-      // Also try a broader search to see all pending shares (for debugging RLS)
-      const { data: allPendingShares, error: allError } = await supabase
-        .from('pending_shares')
-        .select('*')
-
-      console.log('All pending shares in database:', allPendingShares)
-      console.log('All pending shares error:', allError)
-
       if (pendingShares && pendingShares.length > 0) {
-        console.log('Found pending shares:', pendingShares.length)
-        
         let acceptedCount = 0
         
         // Process each pending share
         for (const pendingShare of pendingShares) {
           try {
-            console.log('Processing pending share:', pendingShare.id, 'for snippet:', pendingShare.snippet_id)
-            
             // Check if invitation hasn't expired
             if (pendingShare.expires_at && new Date(pendingShare.expires_at) < new Date()) {
-              console.log('Pending share expired, skipping:', pendingShare.id)
               continue
             }
 
@@ -105,8 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               continue
             }
 
-            console.log('Successfully created share for pending share:', pendingShare.id)
-
             // Delete pending share
             const { error: deleteError } = await supabase
               .from('pending_shares')
@@ -115,11 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (deleteError) {
               console.error('Error deleting pending share:', deleteError)
-            } else {
-              console.log('Successfully deleted pending share:', pendingShare.id)
             }
 
-            console.log('Successfully accepted pending share:', pendingShare.id)
             acceptedCount++
           } catch (error) {
             console.error('Error processing pending share:', error)
@@ -128,14 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Set notification count
         if (acceptedCount > 0) {
-          console.log('Setting pending shares accepted count to:', acceptedCount)
           setPendingSharesAccepted(acceptedCount)
         }
-      } else {
-        console.log('No pending shares found for user:', user.email)
       }
-      
-      console.log('=== END CHECKING PENDING SHARES ===')
     } catch (error) {
       console.error('Error checking pending shares:', error)
     }
@@ -173,7 +140,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Check for pending shares when user signs up or signs in
         if (event === 'SIGNED_IN' && newUser) {
-          console.log('Auth event:', event, 'for user:', newUser.email)
           await checkPendingShares(newUser)
         }
       }
@@ -184,13 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('AuthContext: Starting sign out process...')
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('AuthContext: Error during sign out:', error)
         throw error
       }
-      console.log('AuthContext: Sign out successful')
     } catch (error) {
       console.error('AuthContext: Failed to sign out:', error)
       throw error

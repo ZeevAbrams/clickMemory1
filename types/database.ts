@@ -3,6 +3,7 @@ export interface Snippet {
   title: string
   system_role: string
   content: string
+  is_public: boolean
   created_at: string
   updated_at: string
   user_id: string
@@ -30,4 +31,15 @@ export interface Profile {
   email: string
   display_name?: string
   created_at: string
+}
+
+export interface UserApiKey {
+  id: string
+  user_id: string
+  api_key: string
+  name: string
+  is_active: boolean
+  last_used_at?: string
+  created_at: string
+  expires_at?: string
 } 

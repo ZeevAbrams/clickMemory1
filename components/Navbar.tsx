@@ -1,6 +1,6 @@
 'use client'
 import { useAuth } from '@/contexts/AuthContext'
-import { LogOut, Plus, Users } from 'lucide-react'
+import { LogOut, Plus, Users, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 
@@ -11,9 +11,7 @@ export default function Navbar() {
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true)
-      console.log('Signing out...')
       await signOut()
-      console.log('Sign out successful')
     } catch (error) {
       console.error('Error signing out:', error)
     } finally {
@@ -37,6 +35,14 @@ export default function Navbar() {
             >
               <Users className="h-4 w-4 mr-2" />
               Shared With Me
+            </Link>
+            
+            <Link
+              href="/dashboard/settings"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-secondary hover:text-primary hover:bg-primary-light rounded-xl transition-all"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
             </Link>
             
             <Link
