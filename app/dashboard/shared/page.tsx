@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,13 +12,7 @@ export default function SharedSnippetsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
-  useEffect(() => {
-    if (user) {
-      fetchSharedSnippets()
-    }
-  }, [user])
-
-  const fetchSharedSnippets = async () => {
+  const fetchSharedSnippets = useCallback(async () => {
     try {
       // First, get all shared snippet IDs for the current user
       const { data: sharedData, error: sharedError } = await supabase
@@ -58,7 +52,13 @@ export default function SharedSnippetsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (user) {
+      fetchSharedSnippets()
+    }
+  }, [user, fetchSharedSnippets])
 
   const filteredSnippets = sharedSnippets.filter(snippet =>
     snippet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -96,7 +96,7 @@ export default function SharedSnippetsPage() {
         <div className="text-center py-16 bg-gradient-card rounded-3xl border border-custom shadow-card">
           <div className="text-6xl mb-4">📤</div>
           <p className="text-secondary text-xl font-medium mb-2">No snippets shared with you yet</p>
-          <p className="text-muted">When other users share snippets with you, they'll appear here</p>
+          <p className="text-muted">When other users share snippets with you, they&apos;ll appear here</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">

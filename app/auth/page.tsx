@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 export default function AuthPage() {
   const { user } = useAuth()
@@ -33,7 +34,7 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light via-background to-secondary-light p-4">
       <div className="max-w-md w-full space-y-8 p-10 bg-gradient-card rounded-3xl shadow-glow border border-custom">
         <div className="text-center">
-          <img src="/FullImage_clickMemory.png" alt="ClickMemory logo" className="mx-auto mb-4 w-20 h-20 rounded-2xl shadow-glow" />
+          <Image src="/FullImage_clickMemory.png" alt="ClickMemory logo" className="mx-auto mb-4 w-20 h-20 rounded-2xl shadow-glow" width={80} height={80} />
           <h2 className="text-4xl font-bold text-primary mb-2">ClickMemory</h2>
           <p className="text-secondary text-lg">Sign in to manage your snippets</p>
         </div>

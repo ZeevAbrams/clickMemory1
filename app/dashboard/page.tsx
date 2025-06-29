@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
@@ -16,13 +16,7 @@ export default function Dashboard() {
   const [contextMenuCount, setContextMenuCount] = useState(0)
   const [totalSnippetCount, setTotalSnippetCount] = useState(0)
 
-  useEffect(() => {
-    if (user) {
-      fetchSnippets()
-    }
-  }, [user])
-
-  const fetchSnippets = async () => {
+  const fetchSnippets = useCallback(async () => {
     try {
       // Fetch own snippets
       const { data: ownSnippets, error: ownError } = await supabase
@@ -73,7 +67,13 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (user) {
+      fetchSnippets()
+    }
+  }, [user, fetchSnippets])
 
   const handleCheckPendingShares = async () => {
     setCheckingPending(true)

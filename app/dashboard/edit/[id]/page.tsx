@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Snippet } from '@/types/database'
@@ -10,11 +10,7 @@ export default function EditSnippetPage() {
   const [snippet, setSnippet] = useState<Snippet | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchSnippet()
-  }, [params.id])
-
-  const fetchSnippet = async () => {
+  const fetchSnippet = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('snippets')
@@ -29,7 +25,11 @@ export default function EditSnippetPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [params.id])
+
+  useEffect(() => {
+    fetchSnippet()
+  }, [fetchSnippet])
 
   if (loading) {
     return (

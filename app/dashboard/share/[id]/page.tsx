@@ -1,9 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Snippet, SharedSnippet, Profile } from '@/types/database'
-import { useAuth } from '@/contexts/AuthContext'
 import { Trash2, Mail, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
@@ -16,11 +15,7 @@ export default function ShareSnippetPage() {
   const [sharePermission, setSharePermission] = useState<'view' | 'edit'>('view')
   const [sharing, setSharing] = useState(false)
 
-  useEffect(() => {
-    fetchSnippetAndShares()
-  }, [params.id])
-
-  const fetchSnippetAndShares = async () => {
+  const fetchSnippetAndShares = useCallback(async () => {
     try {
       // Fetch snippet
       const { data: snippetData, error: snippetError } = await supabase
@@ -68,7 +63,11 @@ export default function ShareSnippetPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [params.id])
+
+  useEffect(() => {
+    fetchSnippetAndShares()
+  }, [fetchSnippetAndShares])
 
   const shareSnippet = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -216,7 +215,7 @@ export default function ShareSnippetPage() {
         {sharedWith.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-4xl mb-4">📤</div>
-            <p className="text-secondary text-lg">This snippet hasn't been shared with anyone yet.</p>
+            <p className="text-secondary text-lg">This snippet hasn&apos;t been shared with anyone yet.</p>
             <p className="text-muted mt-2">Use the form above to share it with others</p>
           </div>
         ) : (

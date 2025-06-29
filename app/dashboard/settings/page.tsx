@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserApiKey } from '@/types/database'
 import { Copy, Trash2, Key, AlertTriangle } from 'lucide-react'
@@ -13,13 +13,6 @@ export default function SettingsPage() {
   const [newKeyName, setNewKeyName] = useState('Chrome Extension')
   const [showApiKey, setShowApiKey] = useState<string | null>(null)
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (user) {
-      loadApiKeys()
-      generateCSRFToken()
-    }
-  }, [user])
 
   const generateCSRFToken = async () => {
     try {
@@ -41,7 +34,7 @@ export default function SettingsPage() {
     return session?.access_token
   }
 
-  const loadApiKeys = async () => {
+  const loadApiKeys = useCallback(async () => {
     setLoading(true)
     try {
       const token = await getSessionToken()
@@ -63,7 +56,14 @@ export default function SettingsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (user) {
+      generateCSRFToken()
+      loadApiKeys()
+    }
+  }, [user, loadApiKeys])
 
   const generateApiKey = async () => {
     if (!csrfToken) {
@@ -127,7 +127,7 @@ export default function SettingsPage() {
       } else {
         alert('Failed to revoke API key')
       }
-    } catch (error) {
+    } catch {
       alert('Error revoking API key')
     }
   }

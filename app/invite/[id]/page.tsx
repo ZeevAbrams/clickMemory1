@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
@@ -28,17 +28,7 @@ export default function InvitePage() {
   const snippetId = params.id as string
   const email = searchParams.get('email')
 
-  useEffect(() => {
-    if (!snippetId || !email) {
-      setError('Invalid invitation link')
-      setLoading(false)
-      return
-    }
-
-    fetchInvitationData()
-  }, [snippetId, email])
-
-  const fetchInvitationData = async () => {
+  const fetchInvitationData = useCallback(async () => {
     try {
       // Use API route to fetch invitation data
       const response = await fetch(`/api/invitation/${snippetId}?email=${encodeURIComponent(email!)}`)
@@ -61,7 +51,17 @@ export default function InvitePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [snippetId, email])
+
+  useEffect(() => {
+    if (!snippetId || !email) {
+      setError('Invalid invitation link')
+      setLoading(false)
+      return
+    }
+
+    fetchInvitationData()
+  }, [snippetId, email, fetchInvitationData])
 
   const copyToClipboard = async () => {
     if (!snippet) return
@@ -132,7 +132,7 @@ export default function InvitePage() {
               <CheckCircle className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-3xl font-bold text-text-primary mb-2">Snippet Invitation</h1>
-            <p className="text-secondary">You've been invited to view a snippet</p>
+            <p className="text-secondary">You&apos;ve been invited to view a snippet</p>
           </div>
 
           <div className="bg-gradient-card rounded-2xl border border-custom p-6 mb-6">
@@ -167,8 +167,8 @@ export default function InvitePage() {
             </div>
           ) : (
             <div className="text-center space-y-4">
-              <p className="text-secondary">You're logged in as <strong>{authUser.email}</strong></p>
-              <p className="text-secondary">This snippet will be automatically added to your "Shared With Me" section when you visit your dashboard.</p>
+              <p className="text-secondary">You&apos;re logged in as <strong>{authUser.email}</strong></p>
+              <p className="text-secondary">This snippet will be automatically added to your &quot;Shared With Me&quot; section when you visit your dashboard.</p>
               <button
                 onClick={() => router.push('/dashboard/shared')}
                 className="bg-gradient-primary text-white px-6 py-3 rounded-2xl hover:bg-primary-hover transition-all font-semibold shadow-glow"
@@ -184,11 +184,11 @@ export default function InvitePage() {
           <ul className="space-y-2 text-secondary">
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5 flex-shrink-0" />
-              <span>This snippet will be added to your "Shared With Me" section</span>
+              <span>This snippet will be added to your &quot;Shared With Me&quot; section</span>
             </li>
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5 flex-shrink-0" />
-              <span>You'll be able to view and edit the snippet</span>
+              <span>You&apos;ll be able to view and edit the snippet</span>
             </li>
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5 flex-shrink-0" />

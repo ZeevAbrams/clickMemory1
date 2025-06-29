@@ -223,7 +223,7 @@ export default function SnippetForm({
               value={formData.system_role}
               onChange={(e) => setFormData({ ...formData, system_role: e.target.value.slice(0, roleCharLimit) })}
               className="w-full px-6 py-4 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted shadow-card transition-all"
-              placeholder="What is the Role of the AI assistant responding? e.g. 'You are the CEO' or 'You are my planning assistant'"
+              placeholder="What is the Role of the AI assistant responding? e.g. &quot;You are the CEO&quot; or &quot;You are my planning assistant&quot;"
             />
             <div className="text-xs text-muted text-right mt-1">{formData.system_role.length}/{roleCharLimit}</div>
           </div>
