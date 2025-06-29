@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { Copy, Edit, Trash2, Share, Globe, Lock, Users, MousePointer, Plus } from 'lucide-react'
 import Link from 'next/link'
 import SharePopup from './SharePopup'
+import { CONTEXT_MENU_SNIPPET_LIMIT } from '@/lib/snippetIdeas'
+import { trackEvent } from '@/lib/posthog'
 
 interface SnippetCardProps {
   snippet: Snippet & { is_shared?: boolean; shared_permission?: string }
@@ -22,9 +24,23 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
     try {
       await navigator.clipboard.writeText(snippet.content)
       setTimeout(() => setCopying(false), 1000)
+      
+      // Track copy action
+      trackEvent('snippet_copied', {
+        snippetId: snippet.id,
+        title: snippet.title,
+        isShared: snippet.is_shared,
+        source: 'web_app'
+      })
     } catch (error) {
       console.error('Failed to copy:', error)
       setCopying(false)
+      
+      // Track copy error
+      trackEvent('snippet_copy_error', {
+        snippetId: snippet.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     }
   }
 
@@ -48,11 +64,24 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
 
       if (error) throw error
       
+      // Track copy to my snippets
+      trackEvent('shared_snippet_copied', {
+        originalSnippetId: snippet.id,
+        originalTitle: snippet.title,
+        sharedPermission: snippet.shared_permission
+      })
+      
       alert('Snippet copied to your snippets! You can now edit it and add it to your context menu.')
       onUpdate()
     } catch (error) {
       console.error('Error copying snippet:', error)
       alert('Failed to copy snippet to your snippets')
+      
+      // Track error
+      trackEvent('shared_snippet_copy_error', {
+        originalSnippetId: snippet.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     } finally {
       setCopyingToMySnippets(false)
     }
@@ -68,13 +97,49 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
         .eq('id', snippet.id)
 
       if (error) throw error
+      
+      // Track deletion
+      trackEvent('snippet_deleted', {
+        snippetId: snippet.id,
+        title: snippet.title,
+        isShared: snippet.is_shared
+      })
+      
       onUpdate()
     } catch (error) {
       console.error('Error deleting snippet:', error)
+      
+      // Track error
+      trackEvent('snippet_delete_error', {
+        snippetId: snippet.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     }
   }
 
   const toggleContextMenu = async () => {
+    // If we're trying to make it public, check the limit first
+    if (!snippet.is_public) {
+      // Count current public snippets
+      const { data: publicSnippets, error: countError } = await supabase
+        .from('snippets')
+        .select('id')
+        .eq('user_id', snippet.user_id)
+        .eq('is_public', true)
+
+      if (countError) {
+        console.error('Error counting public snippets:', countError)
+        return
+      }
+
+      const currentPublicCount = publicSnippets?.length || 0
+      
+      if (currentPublicCount >= CONTEXT_MENU_SNIPPET_LIMIT) {
+        alert(`Maximum ${CONTEXT_MENU_SNIPPET_LIMIT} snippets allowed in context menu. Please uncheck another snippet first.`)
+        return
+      }
+    }
+
     setUpdatingContextMenu(true)
     try {
       const { error } = await supabase
@@ -84,15 +149,28 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
 
       if (error) {
         if (error.message.includes('Maximum 5 snippets allowed')) {
-          alert('Maximum 5 snippets allowed in context menu. Please uncheck another snippet first.')
+          alert(`Maximum ${CONTEXT_MENU_SNIPPET_LIMIT} snippets allowed in context menu. Please uncheck another snippet first.`)
         } else {
           throw error
         }
       } else {
+        // Track context menu toggle
+        trackEvent('context_menu_toggled', {
+          snippetId: snippet.id,
+          title: snippet.title,
+          enabled: !snippet.is_public
+        })
+        
         onUpdate()
       }
     } catch (error) {
       console.error('Error updating context menu status:', error)
+      
+      // Track error
+      trackEvent('context_menu_toggle_error', {
+        snippetId: snippet.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     } finally {
       setUpdatingContextMenu(false)
     }
@@ -148,7 +226,10 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
               </div>
             </label>
             <p className="text-xs text-muted mt-1 ml-7">
-              {snippet.is_public ? 'This snippet will appear in the right-click menu on webpages' : 'Check to make this snippet available in the right-click menu'}
+              {snippet.is_public 
+                ? 'This snippet will appear in the right-click menu on webpages' 
+                : `Check to make this snippet available in the right-click menu (max ${CONTEXT_MENU_SNIPPET_LIMIT})`
+              }
             </p>
           </div>
         )}

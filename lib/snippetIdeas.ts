@@ -1,6 +1,8 @@
 export const SNIPPET_TITLE_CHAR_LIMIT = 30;
 export const SNIPPET_ROLE_CHAR_LIMIT = 80;
 export const SNIPPET_CONTENT_CHAR_LIMIT = 8000;
+export const CONTEXT_MENU_SNIPPET_LIMIT = 5;
+export const TOTAL_SNIPPET_LIMIT = 20;
 
 export interface SnippetIdea {
   title: string;

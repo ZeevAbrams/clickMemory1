@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import SnippetCard from '@/components/SnippetCard'
-import { Search, RefreshCw } from 'lucide-react'
+import { Search, RefreshCw, MousePointer } from 'lucide-react'
+import { CONTEXT_MENU_SNIPPET_LIMIT, TOTAL_SNIPPET_LIMIT } from '@/lib/snippetIdeas'
 
 export default function Dashboard() {
   const { user, checkPendingShares } = useAuth()
@@ -12,6 +13,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [checkingPending, setCheckingPending] = useState(false)
+  const [contextMenuCount, setContextMenuCount] = useState(0)
+  const [totalSnippetCount, setTotalSnippetCount] = useState(0)
 
   useEffect(() => {
     if (user) {
@@ -58,6 +61,13 @@ export default function Dashboard() {
       )
 
       setSnippets(allSnippets)
+      
+      // Calculate context menu count (only own snippets can be in context menu)
+      const ownContextMenuCount = ownSnippetsList.filter(snippet => snippet.is_public).length
+      setContextMenuCount(ownContextMenuCount)
+
+      // Set total snippet count
+      setTotalSnippetCount(allSnippets.length)
     } catch (error) {
       console.error('Error fetching snippets:', error)
     } finally {
@@ -97,6 +107,38 @@ export default function Dashboard() {
         <div>
           <h1 className="text-4xl font-bold text-text-primary mb-2">My Snippets</h1>
           <p className="text-secondary text-lg">Store and organize your thoughts</p>
+          <div className="flex items-center space-x-6 mt-2">
+            <div className="flex items-center space-x-2">
+              <MousePointer className="h-4 w-4 text-primary" />
+              <span className="text-sm text-muted">
+                Context Menu: {contextMenuCount}/{CONTEXT_MENU_SNIPPET_LIMIT} snippets
+              </span>
+              {contextMenuCount >= CONTEXT_MENU_SNIPPET_LIMIT && (
+                <span className="text-xs text-red-500 font-medium">(Limit reached)</span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2 group relative">
+              <div className="h-4 w-4 text-secondary">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <span className="text-sm text-muted">
+                Total: {totalSnippetCount}/{TOTAL_SNIPPET_LIMIT} snippets
+              </span>
+              {totalSnippetCount >= TOTAL_SNIPPET_LIMIT && (
+                <span className="text-xs text-red-500 font-medium">(Limit reached)</span>
+              )}
+              {totalSnippetCount >= TOTAL_SNIPPET_LIMIT * 0.8 && totalSnippetCount < TOTAL_SNIPPET_LIMIT && (
+                <span className="text-xs text-yellow-500 font-medium">(Approaching limit)</span>
+              )}
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                Limited to {TOTAL_SNIPPET_LIMIT} snippets in the free version
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
           <button

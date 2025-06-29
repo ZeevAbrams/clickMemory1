@@ -5,6 +5,7 @@ import { Snippet } from '@/types/database'
 import { Mail, X, Check } from 'lucide-react'
 import { EmailService } from '@/lib/emailService'
 import { useAuth } from '@/contexts/AuthContext'
+import { trackEvent } from '@/lib/posthog'
 
 interface SharePopupProps {
   snippet: Snippet
@@ -37,6 +38,7 @@ export default function SharePopup({ snippet, isOpen, onClose, onShareSuccess }:
       if (error) {
         if (error.code === '23505') {
           alert('Invitation already sent to this email')
+          return
         } else {
           throw error
         }
@@ -51,17 +53,41 @@ export default function SharePopup({ snippet, isOpen, onClose, onShareSuccess }:
         })
 
         if (emailSent) {
+          // Track successful invitation
+          trackEvent('snippet_shared', {
+            snippetId: snippet.id,
+            snippetTitle: snippet.title,
+            recipientEmail: email.trim(),
+            permission: permission,
+            emailSent: true
+          })
+          
           setInviteSent(true)
           setTimeout(() => {
             handleShareSuccess()
           }, 1500)
         } else {
           alert('Failed to send invitation email')
+          
+          // Track email failure
+          trackEvent('snippet_share_email_failed', {
+            snippetId: snippet.id,
+            recipientEmail: email.trim(),
+            permission: permission
+          })
         }
       }
     } catch (error) {
       console.error('Error sending invite:', error)
       alert('Failed to send invitation')
+      
+      // Track error
+      trackEvent('snippet_share_error', {
+        snippetId: snippet.id,
+        recipientEmail: email.trim(),
+        permission: permission,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     } finally {
       setLoading(false)
     }

@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Snippet } from '@/types/database'
+import { TOTAL_SNIPPET_LIMIT } from '@/lib/snippetIdeas'
+import { trackEvent } from '@/lib/posthog'
 
 interface SnippetFormProps {
   snippet?: Snippet
@@ -13,6 +15,7 @@ interface SnippetFormProps {
   titleCharLimit?: number
   roleCharLimit?: number
   contentCharLimit?: number
+  currentSnippetCount?: number
 }
 
 export default function SnippetForm({
@@ -22,7 +25,8 @@ export default function SnippetForm({
   clearPendingContent,
   titleCharLimit = 100,
   roleCharLimit = 80,
-  contentCharLimit = 8000
+  contentCharLimit = 8000,
+  currentSnippetCount = 0
 }: SnippetFormProps) {
   const { user } = useAuth()
   const router = useRouter()
@@ -70,6 +74,12 @@ export default function SnippetForm({
       return false
     }
     
+    // Check total snippet limit for new snippets
+    if (!isEdit && currentSnippetCount >= TOTAL_SNIPPET_LIMIT) {
+      setError(`You have reached the maximum limit of ${TOTAL_SNIPPET_LIMIT} snippets in the free version. Please delete some snippets first.`)
+      return false
+    }
+    
     return true
   }
 
@@ -97,15 +107,28 @@ export default function SnippetForm({
           .eq('id', snippet.id)
 
         if (error) {
-          if (error.message.includes('Maximum 15 snippets')) {
-            setError('You have reached the maximum limit of 15 snippets. Please delete some snippets first.')
+          if (error.message.includes('Maximum 15 snippets') || error.message.includes('Maximum 20 snippets')) {
+            setError(`You have reached the maximum limit of ${TOTAL_SNIPPET_LIMIT} snippets in the free version. Please delete some snippets first.`)
           } else {
             setError('Failed to update snippet: ' + error.message)
           }
+          
+          // Track error
+          trackEvent('snippet_save_error', {
+            isEdit,
+            error: error.message
+          })
           return
         }
+        
+        // Track successful edit
+        trackEvent('snippet_edited', {
+          snippetId: snippet.id,
+          title: formData.title.trim(),
+          hasSystemRole: !!formData.system_role.trim()
+        })
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('snippets')
           .insert([{
             title: formData.title.trim(),
@@ -113,21 +136,43 @@ export default function SnippetForm({
             content: formData.content.trim(),
             user_id: user.id
           }])
+          .select()
+          .single()
 
         if (error) {
-          if (error.message.includes('Maximum 15 snippets')) {
-            setError('You have reached the maximum limit of 15 snippets. Please delete some snippets first.')
+          if (error.message.includes('Maximum 15 snippets') || error.message.includes('Maximum 20 snippets')) {
+            setError(`You have reached the maximum limit of ${TOTAL_SNIPPET_LIMIT} snippets in the free version. Please delete some snippets first.`)
           } else {
             setError('Failed to create snippet: ' + error.message)
           }
+          
+          // Track error
+          trackEvent('snippet_save_error', {
+            isEdit,
+            error: error.message
+          })
           return
         }
+        
+        // Track successful creation
+        trackEvent('snippet_created', {
+          snippetId: data.id,
+          title: formData.title.trim(),
+          hasSystemRole: !!formData.system_role.trim(),
+          snippetCount: currentSnippetCount + 1
+        })
       }
 
       router.push('/dashboard')
     } catch (error) {
       console.error('Error saving snippet:', error)
       setError('An unexpected error occurred. Please try again.')
+      
+      // Track error
+      trackEvent('snippet_save_error', {
+        isEdit,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     } finally {
       setLoading(false)
     }
@@ -136,9 +181,12 @@ export default function SnippetForm({
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-card rounded-3xl shadow-card border border-custom p-8">
-        <h1 className="text-3xl font-bold text-text-primary mb-8">
+        <h1 className="text-3xl font-bold text-text-primary mb-2">
           {isEdit ? 'Edit Snippet' : 'Create New Snippet'}
         </h1>
+        <p className="text-sm text-muted italic mb-8">
+          Give the snippet a title, role and content. Use and edit ideas on the right or make up your own.
+        </p>
         
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
@@ -149,7 +197,7 @@ export default function SnippetForm({
         <form onSubmit={handleSubmit} className="space-y-8">
           <div>
             <label htmlFor="title" className="block text-sm font-semibold text-secondary mb-3">
-              Title * (what you will see in the chrome extension)
+              Title (what you will see in the chrome extension)
             </label>
             <input
               type="text"
@@ -175,14 +223,14 @@ export default function SnippetForm({
               value={formData.system_role}
               onChange={(e) => setFormData({ ...formData, system_role: e.target.value.slice(0, roleCharLimit) })}
               className="w-full px-6 py-4 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted shadow-card transition-all"
-              placeholder="What is the Role of the AI assistant responding? e.g. 'You are the CEO' or 'You are my planning assistant' (optional)"
+              placeholder="What is the Role of the AI assistant responding? e.g. 'You are the CEO' or 'You are my planning assistant'"
             />
             <div className="text-xs text-muted text-right mt-1">{formData.system_role.length}/{roleCharLimit}</div>
           </div>
           
           <div>
             <label htmlFor="content" className="block text-sm font-semibold text-secondary mb-3">
-              Content * (Get ideas on the right)
+              Content (Get ideas on the right)
             </label>
             <textarea
               id="content"

@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
       {
         source: '/api/:path*',
         headers: [
-          // TODO: Replace with your actual Vercel domain when deployed
-          { key: 'Access-Control-Allow-Origin', value: 'https://click-memory-app.vercel.app' },
+          // For development, allow all origins. In production, this should be restricted
+          { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
           { key: 'Access-Control-Max-Age', value: '86400' },
@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self';",
           },
         ],
       },

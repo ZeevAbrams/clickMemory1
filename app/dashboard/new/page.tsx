@@ -1,11 +1,51 @@
 'use client'
 import SnippetForm from '@/components/SnippetForm'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SNIPPET_IDEAS, SNIPPET_TITLE_CHAR_LIMIT, SNIPPET_ROLE_CHAR_LIMIT, SNIPPET_CONTENT_CHAR_LIMIT, SnippetIdea } from '@/lib/snippetIdeas'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function NewSnippetPage() {
+  const { user } = useAuth()
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [pendingContent, setPendingContent] = useState<string>('')
+  const [currentSnippetCount, setCurrentSnippetCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  // Fetch current snippet count
+  useEffect(() => {
+    const fetchSnippetCount = async () => {
+      if (!user) return
+      
+      try {
+        // Fetch own snippets
+        const { data: ownSnippets, error: ownError } = await supabase
+          .from('snippets')
+          .select('id')
+          .eq('user_id', user.id)
+
+        if (ownError) throw ownError
+
+        // Fetch shared snippets
+        const { data: sharedSnippets, error: sharedError } = await supabase
+          .from('shared_snippets')
+          .select('snippet_id')
+          .eq('shared_with_user_id', user.id)
+
+        if (sharedError) throw sharedError
+
+        const ownCount = ownSnippets?.length || 0
+        const sharedCount = sharedSnippets?.length || 0
+        setCurrentSnippetCount(ownCount + sharedCount)
+      } catch (error) {
+        console.error('Error fetching snippet count:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSnippetCount()
+  }, [user])
 
   // This will be called by the sidebar button to add content to the form
   const handleUseTemplate = (content: string) => {
@@ -14,6 +54,14 @@ export default function NewSnippetPage() {
 
   // This will be called by the form after it consumes the pending content
   const clearPendingContent = () => setPendingContent('')
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent shadow-glow"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
@@ -25,6 +73,7 @@ export default function NewSnippetPage() {
           titleCharLimit={SNIPPET_TITLE_CHAR_LIMIT}
           roleCharLimit={SNIPPET_ROLE_CHAR_LIMIT}
           contentCharLimit={SNIPPET_CONTENT_CHAR_LIMIT}
+          currentSnippetCount={currentSnippetCount}
         />
       </div>
       {/* Sidebar (or below on mobile) */}
@@ -44,6 +93,7 @@ export default function NewSnippetPage() {
               Add This Template
             </button>
           </div>
+          <p className="text-sm text-muted italic mb-4">These can be chained together</p>
           <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
             {SNIPPET_IDEAS.map((idea, idx) => (
               <div key={idea.title} className="mb-2 border-b border-custom pb-2">

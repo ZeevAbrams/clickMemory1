@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { identifyUser, trackEvent } from '@/lib/posthog'
 
 interface AuthContextType {
   user: User | null
@@ -125,8 +126,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser)
       setLoading(false)
       
-      // Check for pending shares on initial load if user exists
+      // Track user identification
       if (currentUser) {
+        identifyUser(currentUser.id, currentUser.email)
+        trackEvent('user_logged_in', {
+          userId: currentUser.id,
+          email: currentUser.email
+        })
         checkPendingShares(currentUser)
       }
     })
@@ -138,9 +144,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newUser)
         setLoading(false)
 
-        // Check for pending shares when user signs up or signs in
         if (event === 'SIGNED_IN' && newUser) {
+          identifyUser(newUser.id, newUser.email)
+          trackEvent('user_logged_in', {
+            userId: newUser.id,
+            email: newUser.email
+          })
           await checkPendingShares(newUser)
+        } else if (event === 'SIGNED_OUT') {
+          trackEvent('user_logged_out')
         }
       }
     )
@@ -155,6 +167,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('AuthContext: Error during sign out:', error)
         throw error
       }
+      
+      // Track sign out
+      trackEvent('user_logged_out')
     } catch (error) {
       console.error('AuthContext: Failed to sign out:', error)
       throw error

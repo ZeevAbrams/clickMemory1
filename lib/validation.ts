@@ -79,8 +79,8 @@ export function validateApiKey(apiKey: string): ValidationResult {
     errors.push('API key is required')
   } else if (!sanitized.startsWith('sk_live_')) {
     errors.push('API key must start with sk_live_')
-  } else if (sanitized.length !== 71) {
-    errors.push('API key must be 71 characters long')
+  } else if (sanitized.length !== 72) {
+    errors.push('API key must be 72 characters long')
   }
   
   return {
