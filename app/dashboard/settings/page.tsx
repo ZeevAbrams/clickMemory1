@@ -187,7 +187,7 @@ export default function SettingsPage() {
               <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 mb-6">
                 <h3 className="text-lg font-semibold mb-3 text-green-400">API Key Generated!</h3>
                 <p className="text-green-300 mb-4 leading-relaxed">
-                  Copy this key and paste it into your Chrome extension. Keep it secure - you won't be able to see it again.
+                  Copy this key and paste it into your Chrome extension. Keep it secure - you won&apos;t be able to see it again.
                 </p>
                 <div className="flex items-center gap-3">
                   <code className="flex-1 bg-card px-4 py-3 rounded-xl border border-custom text-sm font-mono break-all text-text-primary">

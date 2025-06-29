@@ -214,7 +214,7 @@ export default function SnippetForm({
           
           <div>
             <label htmlFor="system_role" className="block text-sm font-semibold text-secondary mb-3">
-              System Role (Optional - Try to phrase this as "You are ...")
+              System Role (Optional - Try to phrase this as &quot;You are ...&quot;)
             </label>
             <input
               type="text"
