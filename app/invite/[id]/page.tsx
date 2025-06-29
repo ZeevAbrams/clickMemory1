@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,7 +13,7 @@ interface PendingShare {
   expires_at: string
 }
 
-export default function InvitePage() {
+function InvitePageContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -198,5 +198,17 @@ export default function InvitePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent shadow-glow"></div>
+      </div>
+    }>
+      <InvitePageContent />
+    </Suspense>
   )
 } 

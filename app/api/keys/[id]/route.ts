@@ -5,9 +5,10 @@ import { NextResponse } from 'next/server'
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const cookieStore = await cookies()
+  const { id } = await params
   
   // Check for Bearer token in Authorization header
   const authHeader = request.headers.get('Authorization')
@@ -81,7 +82,7 @@ export async function DELETE(
   const { data: apiKeyData, error: keyError } = await supabaseAdmin
     .from('user_api_keys')
     .select('id')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('user_id', user.id)
     .single()
 
@@ -95,7 +96,7 @@ export async function DELETE(
   const { error: deleteError } = await supabaseAdmin
     .from('user_api_keys')
     .delete()
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('user_id', user.id)
 
   if (deleteError) {
