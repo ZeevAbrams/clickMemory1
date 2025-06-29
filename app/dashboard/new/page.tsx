@@ -1,7 +1,7 @@
 'use client'
 import SnippetForm from '@/components/SnippetForm'
 import { useState, useEffect } from 'react'
-import { SNIPPET_IDEAS, SNIPPET_TITLE_CHAR_LIMIT, SNIPPET_ROLE_CHAR_LIMIT, SNIPPET_CONTENT_CHAR_LIMIT, SnippetIdea } from '@/lib/snippetIdeas'
+import { SNIPPET_IDEAS, SNIPPET_TITLE_CHAR_LIMIT, SNIPPET_ROLE_CHAR_LIMIT, SNIPPET_CONTENT_CHAR_LIMIT } from '@/lib/snippetIdeas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 

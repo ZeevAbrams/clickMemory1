@@ -4,7 +4,6 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import { CheckCircle, AlertCircle, Copy } from 'lucide-react'
-import Link from 'next/link'
 
 interface PendingShare {
   id: string

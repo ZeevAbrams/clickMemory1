@@ -17,7 +17,7 @@ if (process.env.POSTHOG_KEY) {
 }
 
 // Helper function to identify user
-export const identifyUser = (userId: string, email?: string, properties?: Record<string, any>) => {
+export const identifyUser = (userId: string, email?: string, properties?: Record<string, unknown>) => {
   if (typeof window !== 'undefined') {
     // Only run on client side
     import('posthog-js').then((posthog) => {
@@ -31,25 +31,20 @@ export const identifyUser = (userId: string, email?: string, properties?: Record
 }
 
 // Helper function to track events
-export const trackEvent = (eventName: string, properties?: Record<string, any>) => {
-  console.log('🎯 Tracking event:', eventName, properties) // Debug log
-  
+export const trackEvent = (eventName: string, properties?: Record<string, unknown>) => {
   if (typeof window !== 'undefined') {
     // Only run on client side
     import('posthog-js').then((posthog) => {
       const client = posthog.default
-      console.log('📊 PostHog client loaded, sending event...') // Debug log
       client.capture(eventName, properties)
     }).catch(error => {
-      console.error('❌ PostHog client error:', error) // Debug log
+      console.error('PostHog client error:', error)
     })
   }
 }
 
 // Helper function for server-side tracking
-export const trackServerEvent = (eventName: string, userId: string, properties?: Record<string, any>) => {
-  console.log('🖥️ Tracking server event:', eventName, { userId, properties }) // Debug log
-  
+export const trackServerEvent = (eventName: string, userId: string, properties?: Record<string, unknown>) => {
   if (posthogServer) {
     try {
       posthogServer.capture({
@@ -57,11 +52,10 @@ export const trackServerEvent = (eventName: string, userId: string, properties?:
         event: eventName,
         properties
       })
-      console.log('✅ Server event sent successfully') // Debug log
     } catch (error) {
-      console.warn('❌ Failed to track server event:', error)
+      console.error('Failed to track server event:', error)
     }
   } else {
-    console.warn('⚠️ PostHog server not initialized')
+    // Optionally, you can log this as an error if needed
   }
 }

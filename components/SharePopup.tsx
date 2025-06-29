@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Snippet } from '@/types/database'
-import { Mail, X, Check } from 'lucide-react'
+import { X, Check } from 'lucide-react'
 import { EmailService } from '@/lib/emailService'
 import { useAuth } from '@/contexts/AuthContext'
 import { trackEvent } from '@/lib/posthog'

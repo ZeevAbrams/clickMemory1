@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Snippet } from '@/types/database'
 import { supabase } from '@/lib/supabase'
-import { Copy, Edit, Trash2, Share, Globe, Lock, Users, MousePointer, Plus } from 'lucide-react'
+import { Copy, Edit, Trash2, Share, Lock, Users, MousePointer, Plus } from 'lucide-react'
 import Link from 'next/link'
 import SharePopup from './SharePopup'
 import { CONTEXT_MENU_SNIPPET_LIMIT } from '@/lib/snippetIdeas'

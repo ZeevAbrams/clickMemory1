@@ -1,5 +1,3 @@
-import { PendingShare, Snippet } from '@/types/database'
-
 export interface EmailInvitation {
   to: string
   snippetTitle: string

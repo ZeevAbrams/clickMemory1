@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import SnippetCard from '@/components/SnippetCard'
-import { Search, Users } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 export default function SharedSnippetsPage() {
   const { user } = useAuth()

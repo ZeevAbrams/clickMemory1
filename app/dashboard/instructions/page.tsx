@@ -1,5 +1,5 @@
 'use client'
-import { BookOpen, Plus, MousePointer, Key, Download, CheckCircle, Settings } from 'lucide-react'
+import { BookOpen, Plus, MousePointer, Key, Download, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function InstructionsPage() {
@@ -129,7 +129,7 @@ export default function InstructionsPage() {
                 Configure the Extension
               </h3>
               <p className="text-secondary mb-4">
-                Open the extension, paste your API key, and you're ready to right-click and access your snippets anywhere!
+                Open the extension, paste your API key, and you&apos;re ready to right-click and access your snippets anywhere!
               </p>
               <div className="bg-secondary-light rounded-xl p-4 border border-custom">
                 <p className="text-sm text-secondary">

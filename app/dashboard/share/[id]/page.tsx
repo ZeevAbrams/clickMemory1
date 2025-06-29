@@ -9,7 +9,6 @@ import Link from 'next/link'
 
 export default function ShareSnippetPage() {
   const params = useParams()
-  const { user } = useAuth()
   const [snippet, setSnippet] = useState<Snippet | null>(null)
   const [sharedWith, setSharedWith] = useState<(SharedSnippet & { profile: Profile })[]>([])
   const [loading, setLoading] = useState(true)

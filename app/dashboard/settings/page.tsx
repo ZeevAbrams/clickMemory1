@@ -96,7 +96,7 @@ export default function SettingsPage() {
       } else {
         alert('Failed to generate API key: ' + data.error)
       }
-    } catch (error) {
+    } catch {
       alert('Error generating API key')
     } finally {
       setGenerating(false)
@@ -218,7 +218,7 @@ export default function SettingsPage() {
               Security Notice
             </h3>
             <ul className="text-sm text-yellow-300 space-y-2">
-              <li>• Keep your API key secure and don't share it with anyone</li>
+              <li>• Keep your API key secure and don&apos;t share it with anyone</li>
               <li>• You can revoke API keys at any time from this page</li>
               <li>• API keys are used for read-only access to your snippets</li>
               <li>• Keys automatically expire after 1 year for security</li>

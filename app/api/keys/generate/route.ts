@@ -82,8 +82,7 @@ export async function POST(request: Request) {
     )
     
     // First try to get the session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    
+    await supabase.auth.getSession()
     // Get the authenticated user
     const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
     user = cookieUser
@@ -123,7 +122,7 @@ export async function POST(request: Request) {
   const apiKey = `sk_live_${crypto.randomBytes(32).toString('hex')}`
   
   // Store in database
-  const { data, error } = await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from('user_api_keys')
     .insert({
       user_id: user.id,

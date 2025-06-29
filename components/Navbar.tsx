@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { LogOut, Plus, Users, Settings, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
+import Image from 'next/image'
 
 export default function Navbar() {
   const { user, signOut } = useAuth()
@@ -24,7 +25,7 @@ export default function Navbar() {
       <div className="container mx-auto px-6">
         <div className="flex justify-between items-center h-20">
           <Link href="/dashboard" className="flex items-center space-x-3 text-2xl font-bold text-primary hover:text-primary-hover transition-colors">
-            <img src="/FullImage_clickMemory.png" alt="ClickMemory Logo" className="h-10 w-10 object-contain" />
+            <Image src="/FullImage_clickMemory.png" alt="ClickMemory Logo" className="h-10 w-10 object-contain" width={40} height={40} />
             <span>ClickMemory</span>
           </Link>
           
