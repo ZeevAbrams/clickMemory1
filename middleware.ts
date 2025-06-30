@@ -28,14 +28,20 @@ export async function middleware(request: NextRequest) {
       }
     )
 
-    // Refresh session if expired - required for Server Components
-    // https://supabase.com/docs/guides/auth/auth-helpers/nextjs#managing-user-with-client-components
-    await supabase.auth.getUser()
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Middleware timeout')), 5000)
+    })
+
+    // Refresh session if expired with timeout
+    const userPromise = supabase.auth.getUser()
+    
+    await Promise.race([userPromise, timeoutPromise])
 
     return supabaseResponse
   } catch (error) {
     console.error('Middleware error:', error)
-    // Return a basic response if middleware fails
+    // Return a basic response if middleware fails - don't hang the request
     return NextResponse.next({
       request,
     })

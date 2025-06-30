@@ -120,26 +120,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      setLoading(false)
-      
-      // Track user identification
-      if (currentUser) {
-        identifyUser(currentUser.id, currentUser.email)
-        trackEvent('user_logged_in', {
-          userId: currentUser.id,
-          email: currentUser.email
+    let isMounted = true
+    let timeoutId: NodeJS.Timeout
+
+    const initializeAuth = async () => {
+      try {
+        // Set a timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Auth timeout')), 10000)
         })
-        checkPendingShares(currentUser)
+
+        // Get initial session with timeout
+        const sessionPromise = supabase.auth.getSession()
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
+        
+        if (!isMounted) return
+
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        setLoading(false)
+        
+        // Track user identification
+        if (currentUser) {
+          identifyUser(currentUser.id, currentUser.email)
+          trackEvent('user_logged_in', {
+            userId: currentUser.id,
+            email: currentUser.email
+          })
+          // Don't await this to prevent blocking
+          checkPendingShares(currentUser).catch(error => {
+            console.error('Error checking pending shares:', error)
+          })
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+        if (isMounted) {
+          setUser(null)
+          setLoading(false)
+        }
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId)
       }
-    })
+    }
+
+    initializeAuth()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return
+        
         const newUser = session?.user ?? null
         setUser(newUser)
         setLoading(false)
@@ -150,14 +181,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             userId: newUser.id,
             email: newUser.email
           })
-          await checkPendingShares(newUser)
+          // Don't await this to prevent blocking
+          checkPendingShares(newUser).catch(error => {
+            console.error('Error checking pending shares:', error)
+          })
         } else if (event === 'SIGNED_OUT') {
           trackEvent('user_logged_out')
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      if (timeoutId) clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signOut = async () => {

@@ -227,7 +227,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
             </label>
             <p className="text-xs text-muted mt-1 ml-7">
               {snippet.is_public 
-                ? 'This snippet will appear in the right-click menu on webpages' 
+                ? 'This snippet will appear in the right-click menu on webpages (may take 2 min to update)' 
                 : `Check to make this snippet available in the right-click menu (max ${CONTEXT_MENU_SNIPPET_LIMIT})`
               }
             </p>

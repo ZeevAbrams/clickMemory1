@@ -1,76 +1,52 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { searchParams } = new URL(request.url)
-    const email = searchParams.get('email')
-    const { id: snippetId } = await params
+    const { id } = await params
+    const email = request.nextUrl.searchParams.get('email')
 
-    if (!email || !snippetId) {
-      return NextResponse.json(
-        { error: 'Missing email or snippet ID' },
-        { status: 400 }
-      )
+    if (!email) {
+      return NextResponse.json({ error: 'Email parameter is required' }, { status: 400 })
     }
 
-    // Fetch the snippet
-    const { data: snippetData, error: snippetError } = await supabaseAdmin
-      .from('snippets')
-      .select('*')
-      .eq('id', snippetId)
-      .single()
-
-    if (snippetError) {
-      console.error('Snippet error:', snippetError)
-      return NextResponse.json(
-        { error: 'Snippet not found or access denied' },
-        { status: 404 }
-      )
-    }
-
-    // Fetch pending share
-    const { data: pendingData, error: pendingError } = await supabaseAdmin
+    // Get pending share
+    const { data: pendingShare, error: pendingError } = await supabaseAdmin
       .from('pending_shares')
       .select('*')
-      .eq('snippet_id', snippetId)
+      .eq('snippet_id', id)
       .eq('email', email)
       .single()
 
-    if (pendingError) {
-      console.error('Pending share error:', pendingError)
-      return NextResponse.json(
-        { error: 'Invitation not found or expired' },
-        { status: 404 }
-      )
+    if (pendingError || !pendingShare) {
+      return NextResponse.json({ error: 'Invitation not found or expired' }, { status: 404 })
     }
 
     // Check if invitation has expired
-    if (new Date(pendingData.expires_at) < new Date()) {
-      return NextResponse.json(
-        { error: 'Invitation has expired' },
-        { status: 410 }
-      )
+    if (pendingShare.expires_at && new Date(pendingShare.expires_at) < new Date()) {
+      return NextResponse.json({ error: 'Invitation has expired' }, { status: 410 })
+    }
+
+    // Get snippet details
+    const { data: snippet, error: snippetError } = await supabaseAdmin
+      .from('snippets')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (snippetError || !snippet) {
+      return NextResponse.json({ error: 'Snippet not found' }, { status: 404 })
     }
 
     return NextResponse.json({
-      snippet: snippetData,
-      pendingShare: pendingData
+      snippet,
+      pendingShare
     })
-
   } catch (error) {
-    console.error('Error fetching invitation data:', error)
-    return NextResponse.json(
-      { error: 'Failed to load invitation' },
-      { status: 500 }
-    )
+    console.error('Error fetching invitation:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

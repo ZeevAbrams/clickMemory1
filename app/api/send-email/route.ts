@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase'
 
 // Check for required environment variables
 if (!process.env.RESEND_API_KEY) {
@@ -16,11 +16,6 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-
-// Create Supabase client for server-side operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user is authenticated using the auth token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authToken)
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(authToken)
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
