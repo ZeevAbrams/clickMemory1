@@ -13,6 +13,8 @@ export default function SharedSnippetsPage() {
   const [searchTerm, setSearchTerm] = useState('')
 
   const fetchSharedSnippets = useCallback(async () => {
+    if (!user || !supabase) return;
+
     try {
       // First, get all shared snippet IDs for the current user
       const { data: sharedData, error: sharedError } = await supabase
@@ -52,7 +54,7 @@ export default function SharedSnippetsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user])
 
   useEffect(() => {
     if (user) {

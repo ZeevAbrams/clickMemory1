@@ -24,6 +24,12 @@ function checkRateLimit(userId: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if supabaseAdmin is available
+    if (!supabaseAdmin) {
+      console.error('Supabase admin client not available - missing environment variables')
+      return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 })
+    }
+
     // Get the auth token from the request
     const authToken = request.headers.get('authorization')?.replace('Bearer ', '')
     

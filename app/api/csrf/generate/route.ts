@@ -4,6 +4,13 @@ import { NextResponse } from 'next/server'
 import { generateCSRFToken } from '@/lib/csrf'
 
 export async function GET() {
+  // Check for required environment variables first
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({ 
+      error: 'Service configuration error' 
+    }, { status: 503 })
+  }
+
   const cookieStore = await cookies()
   
   const supabase = createServerClient(

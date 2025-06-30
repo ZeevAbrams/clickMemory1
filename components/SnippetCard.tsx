@@ -20,6 +20,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
   const [copyingToMySnippets, setCopyingToMySnippets] = useState(false)
 
   const copyToClipboard = async () => {
+    if (!supabase) return;
     setCopying(true)
     try {
       await navigator.clipboard.writeText(snippet.content)
@@ -45,6 +46,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
   }
 
   const copyToMySnippets = async () => {
+    if (!supabase) return;
     setCopyingToMySnippets(true)
     try {
       // Get current user
@@ -88,6 +90,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
   }
 
   const deleteSnippet = async () => {
+    if (!supabase) return;
     if (!confirm('Are you sure you want to delete this snippet?')) return
 
     try {
@@ -118,6 +121,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
   }
 
   const toggleContextMenu = async () => {
+    if (!supabase) return;
     // If we're trying to make it public, check the limit first
     if (!snippet.is_public) {
       // Count current public snippets

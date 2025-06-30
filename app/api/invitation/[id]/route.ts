@@ -6,6 +6,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Database service not available' }, { status: 503 })
+    }
+
     const { id } = await params
     const email = request.nextUrl.searchParams.get('email')
 

@@ -25,6 +25,10 @@ export async function middleware(request: NextRequest) {
             )
           },
         },
+        auth: {
+          persistSession: false,
+          storageKey: 'clickmemory-middleware'
+        }
       }
     )
 

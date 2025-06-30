@@ -32,6 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Check for pending shares when user signs up
   const checkPendingShares = async (user: User) => {
     try {
+      if (!supabase) {
+        console.error('Supabase client not available for checking pending shares')
+        return
+      }
+
       // Add a small delay to ensure user profile is fully created
       await new Promise(resolve => setTimeout(resolve, 1000))
       
@@ -125,6 +130,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
+        // Check if supabase client is available
+        if (!supabase) {
+          console.error('Supabase client not initialized - missing environment variables')
+          if (isMounted) {
+            setUser(null)
+            setLoading(false)
+          }
+          return
+        }
+
         // Set a timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => {
           timeoutId = setTimeout(() => reject(new Error('Auth timeout')), 10000)
@@ -167,39 +182,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!isMounted) return
-        
-        const newUser = session?.user ?? null
-        setUser(newUser)
-        setLoading(false)
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!isMounted) return
+          
+          const newUser = session?.user ?? null
+          setUser(newUser)
+          setLoading(false)
 
-        if (event === 'SIGNED_IN' && newUser) {
-          identifyUser(newUser.id, newUser.email)
-          trackEvent('user_logged_in', {
-            userId: newUser.id,
-            email: newUser.email
-          })
-          // Don't await this to prevent blocking
-          checkPendingShares(newUser).catch(error => {
-            console.error('Error checking pending shares:', error)
-          })
-        } else if (event === 'SIGNED_OUT') {
-          trackEvent('user_logged_out')
+          if (event === 'SIGNED_IN' && newUser) {
+            identifyUser(newUser.id, newUser.email)
+            trackEvent('user_logged_in', {
+              userId: newUser.id,
+              email: newUser.email
+            })
+            // Don't await this to prevent blocking
+            checkPendingShares(newUser).catch(error => {
+              console.error('Error checking pending shares:', error)
+            })
+          } else if (event === 'SIGNED_OUT') {
+            trackEvent('user_logged_out')
+          }
         }
-      }
-    )
+      )
 
-    return () => {
-      isMounted = false
-      if (timeoutId) clearTimeout(timeoutId)
-      subscription.unsubscribe()
+      return () => {
+        isMounted = false
+        if (timeoutId) clearTimeout(timeoutId)
+        subscription.unsubscribe()
+      }
+    } else {
+      return () => {
+        isMounted = false
+        if (timeoutId) clearTimeout(timeoutId)
+      }
     }
   }, [])
 
   const signOut = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase client not available for sign out')
+        throw new Error('Authentication service not available')
+      }
+
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('AuthContext: Error during sign out:', error)

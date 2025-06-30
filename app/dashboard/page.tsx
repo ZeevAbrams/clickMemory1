@@ -17,6 +17,8 @@ export default function Dashboard() {
   const [totalSnippetCount, setTotalSnippetCount] = useState(0)
 
   const fetchSnippets = useCallback(async () => {
+    if (!user || !supabase) return;
+
     try {
       // Fetch own snippets
       const { data: ownSnippets, error: ownError } = await supabase
@@ -67,7 +69,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user])
 
   useEffect(() => {
     if (user) {

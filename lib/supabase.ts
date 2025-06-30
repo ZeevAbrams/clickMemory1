@@ -6,29 +6,32 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!supabaseUrl) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_URL environment variable is required. Please check your .env.local file.')
+  console.warn('NEXT_PUBLIC_SUPABASE_URL environment variable is missing. Please check your environment configuration.')
 }
 
 if (!supabaseAnonKey) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is required. Please check your .env.local file.')
+  console.warn('NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is missing. Please check your environment configuration.')
 }
 
-// Single Supabase client instance
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Only create clients if required environment variables are available
+export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl!, supabaseAnonKey!, {
   auth: {
     persistSession: true,
-    storageKey: 'clickmemory-auth'
+    storageKey: 'clickmemory-auth',
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   }
-})
+}) : null
 
-// Server-side admin client for API routes
-export const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceKey || supabaseAnonKey,
+// Server-side admin client for API routes with different storage key
+export const supabaseAdmin = supabaseUrl && (supabaseServiceKey || supabaseAnonKey) ? createClient(
+  supabaseUrl!,
+  (supabaseServiceKey || supabaseAnonKey)!,
   {
     auth: {
       persistSession: false,
-      storageKey: 'clickmemory-admin'
+      storageKey: 'clickmemory-admin',
+      autoRefreshToken: false
     }
   }
-) 
+) : null 

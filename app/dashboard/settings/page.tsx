@@ -29,34 +29,50 @@ export default function SettingsPage() {
     }
   }
 
-  const getSessionToken = async () => {
+  const getSessionToken = useCallback(async () => {
+    if (!supabase) return null;
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token
-  }
+  }, [])
 
   const loadApiKeys = useCallback(async () => {
     setLoading(true)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
+
     try {
       const token = await getSessionToken()
+      if (!token) {
+        throw new Error('User session not found')
+      }
+
       const response = await fetch('/api/keys', {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal // Link AbortController to the fetch request
       })
       
       if (response.ok) {
         const data = await response.json()
         setApiKeys(data.api_keys || [])
+      } else {
+        console.error('Failed to load API keys, status:', response.status)
       }
     } catch (error) {
-      console.error('Error loading API keys:', error)
+      if ((error as Error).name === 'AbortError') {
+        console.error('API key fetch timed out.')
+      } else {
+        console.error('Error loading API keys:', error)
+      }
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
-  }, [])
+  }, [getSessionToken])
 
   useEffect(() => {
     if (user) {

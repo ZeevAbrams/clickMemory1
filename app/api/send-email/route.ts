@@ -28,6 +28,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database service not configured' }, { status: 500 })
     }
 
+    // Check if supabaseAdmin is available
+    if (!supabaseAdmin) {
+      console.error('Supabase admin client not available - missing environment variables')
+      return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 })
+    }
+
     const { to, snippetTitle, snippetId, permission, inviterEmail, type, authToken } = await request.json()
 
     if (!to || !snippetTitle || !snippetId || !authToken) {

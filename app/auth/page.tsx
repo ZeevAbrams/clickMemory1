@@ -30,6 +30,22 @@ function AuthPageContent() {
     setRedirectTo(`${window.location.origin}/dashboard`)
   }, [])
 
+  // Check if supabase client is available
+  if (!supabase) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light via-background to-secondary-light p-4">
+        <div className="max-w-md w-full space-y-8 p-10 bg-gradient-card rounded-3xl shadow-glow border border-custom">
+          <div className="text-center">
+            <Image src="/FullImage_clickMemory.png" alt="ClickMemory logo" className="mx-auto mb-4 w-20 h-20 rounded-2xl shadow-glow" width={80} height={80} />
+            <h2 className="text-4xl font-bold text-primary mb-2">ClickMemory</h2>
+            <p className="text-secondary text-lg">Service temporarily unavailable</p>
+            <p className="text-red-500 text-sm mt-2">Please try again later or contact support.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light via-background to-secondary-light p-4">
       <div className="max-w-md w-full space-y-8 p-10 bg-gradient-card rounded-3xl shadow-glow border border-custom">

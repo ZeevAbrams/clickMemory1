@@ -10,7 +10,13 @@ export class EmailService {
   static async sendInvitation(invitation: EmailInvitation): Promise<boolean> {
     try {
       // Get the current user's auth token
-      const { data: { session } } = await import('@/lib/supabase').then(m => m.supabase.auth.getSession())
+      const supabaseModule = await import('@/lib/supabase')
+      if (!supabaseModule.supabase) {
+        console.error('Supabase client not available')
+        return false
+      }
+      
+      const { data: { session } } = await supabaseModule.supabase.auth.getSession()
       
       if (!session?.access_token) {
         console.error('No auth token available')
@@ -54,7 +60,13 @@ export class EmailService {
   ): Promise<boolean> {
     try {
       // Get the current user's auth token
-      const { data: { session } } = await import('@/lib/supabase').then(m => m.supabase.auth.getSession())
+      const supabaseModule = await import('@/lib/supabase')
+      if (!supabaseModule.supabase) {
+        console.error('Supabase client not available')
+        return false
+      }
+      
+      const { data: { session } } = await supabaseModule.supabase.auth.getSession()
       
       if (!session?.access_token) {
         console.error('No auth token available')

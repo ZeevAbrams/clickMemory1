@@ -3,89 +3,125 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// Type for Supabase auth response
+interface SupabaseAuthResponse {
+  data: {
+    user: {
+      id: string
+      email?: string
+    } | null
+  }
+  error: unknown
+}
+
+// Type for Supabase database response
+interface SupabaseDatabaseResponse<T> {
+  data: T | null
+  error: unknown
+}
+
 export async function GET(request: Request) {
-  const cookieStore = await cookies()
-  
-  // Check for Bearer token in Authorization header
-  const authHeader = request.headers.get('Authorization')
-  let user = null
-  let authError = null
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.replace('Bearer ', '')
+  try {
+    const cookieStore = await cookies()
     
-    // Create a Supabase client with the token
-    const supabaseWithToken = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
+    // Check for Bearer token in Authorization header
+    const authHeader = request.headers.get('Authorization')
+    let user = null
+    let authError = null
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '')
+      
+      // Create a Supabase client with the token
+      const supabaseWithToken = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
           }
         }
-      }
-    )
+      )
+      
+      // Get user from token with timeout
+      const { data: { user: tokenUser }, error: tokenError } = await Promise.race([
+        supabaseWithToken.auth.getUser(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000))
+      ]) as SupabaseAuthResponse
+      user = tokenUser
+      authError = tokenError
+    } else {
+      // Fallback to cookie-based authentication
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll()
+            },
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(({ name, value, options }) =>
+                  cookieStore.set(name, value, options)
+                )
+              } catch {
+                // The `setAll` method was called from a Server Component.
+                // This can be ignored if you have middleware refreshing
+                // user sessions.
+              }
+            },
+          },
+        }
+      )
+      
+      // Get the authenticated user with timeout
+      const { data: { user: cookieUser }, error: cookieError } = await Promise.race([
+        supabase.auth.getUser(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000))
+      ]) as SupabaseAuthResponse
+      user = cookieUser
+      authError = cookieError
+    }
     
-    // Get user from token
-    const { data: { user: tokenUser }, error: tokenError } = await supabaseWithToken.auth.getUser()
-    user = tokenUser
-    authError = tokenError
-  } else {
-    // Fallback to cookie-based authentication
-    const supabase = createServerClient(
+    if (authError || !user) {
+      return NextResponse.json({ 
+        error: 'Not authenticated. Please log in again.' 
+      }, { status: 401 })
+    }
+
+    // Create Supabase client with service role key for admin operations
+    const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              )
-            } catch {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
-            }
-          },
-        },
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
     
-    // Get the authenticated user
-    const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
-    user = cookieUser
-    authError = cookieError
-  }
-  
-  if (authError || !user) {
-    return NextResponse.json({ 
-      error: 'Not authenticated. Please log in again.' 
-    }, { status: 401 })
-  }
+    const promise = supabaseAdmin
+      .from('user_api_keys')
+      .select('id, name, is_active, last_used_at, created_at, expires_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
 
-  // Create Supabase client with service role key for admin operations
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-  
-  const { data: apiKeys, error } = await supabaseAdmin
-    .from('user_api_keys')
-    .select('id, name, is_active, last_used_at, created_at, expires_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+    const { data: apiKeys, error } = await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Database timeout')), 5000))
+    ]) as SupabaseDatabaseResponse<unknown[]>
 
-  if (error) {
-    console.error('Error fetching API keys:', error)
-    return NextResponse.json({ 
-      error: 'Failed to fetch API keys' 
-    }, { status: 500 })
+    if (error) {
+      console.error('Error fetching API keys:', error)
+      return NextResponse.json({ 
+        error: 'Failed to fetch API keys' 
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ api_keys: apiKeys || [] })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('timeout')) {
+      return NextResponse.json({ error: 'Request timeout' }, { status: 408 })
+    }
+    console.error('[API keys/GET] Error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  return NextResponse.json({ api_keys: apiKeys || [] })
 } 

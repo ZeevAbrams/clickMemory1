@@ -24,6 +24,12 @@ export default function SharePopup({ snippet, isOpen, onClose, onShareSuccess }:
   const handleSendInvite = async () => {
     if (!email.trim()) return
 
+    // Check if supabase client is available
+    if (!supabase) {
+      alert('Service temporarily unavailable. Please try again later.')
+      return
+    }
+
     setLoading(true)
     try {
       // Create pending share record

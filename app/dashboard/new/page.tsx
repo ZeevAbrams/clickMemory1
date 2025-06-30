@@ -15,7 +15,7 @@ export default function NewSnippetPage() {
   // Fetch current snippet count
   useEffect(() => {
     const fetchSnippetCount = async () => {
-      if (!user) return
+      if (!user || !supabase) return;
       
       try {
         // Fetch own snippets

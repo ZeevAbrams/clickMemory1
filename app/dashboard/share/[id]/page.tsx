@@ -16,6 +16,8 @@ export default function ShareSnippetPage() {
   const [sharing, setSharing] = useState(false)
 
   const fetchSnippetAndShares = useCallback(async () => {
+    if (!supabase) return;
+
     try {
       // Fetch snippet
       const { data: snippetData, error: snippetError } = await supabase
@@ -71,7 +73,7 @@ export default function ShareSnippetPage() {
 
   const shareSnippet = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!snippet || !shareEmail.trim()) return
+    if (!snippet || !shareEmail.trim() || !supabase) return;
 
     setSharing(true)
     try {
@@ -118,7 +120,7 @@ export default function ShareSnippetPage() {
   }
 
   const removeShare = async (shareId: string) => {
-    if (!confirm('Remove access for this user?')) return
+    if (!confirm('Remove access for this user?') || !supabase) return;
 
     try {
       const { error } = await supabase

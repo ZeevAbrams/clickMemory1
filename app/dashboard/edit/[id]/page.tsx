@@ -11,6 +11,8 @@ export default function EditSnippetPage() {
   const [loading, setLoading] = useState(true)
 
   const fetchSnippet = useCallback(async () => {
+    if (!supabase) return;
+
     try {
       const { data, error } = await supabase
         .from('snippets')

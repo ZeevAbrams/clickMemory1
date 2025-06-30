@@ -163,4 +163,19 @@ export function containsSqlInjection(text: string): boolean {
   ]
   
   return sqlPatterns.some(pattern => pattern.test(text))
+}
+
+// Timeout utility to prevent hanging requests
+export const withTimeout = <T>(promise: Promise<T>, ms: number = 10000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error(`Request timeout after ${ms}ms`)), ms)
+    )
+  ])
+}
+
+// Database timeout wrapper
+export const withDatabaseTimeout = <T>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
+  return withTimeout(promise, ms)
 } 

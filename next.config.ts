@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Production optimizations
+  experimental: {
+    serverComponentsExternalPackages: ['@supabase/supabase-js']
+  },
+  
+  // Optimize for Vercel
+  output: 'standalone',
+  
+  // Reduce bundle size
+  swcMinify: true,
+  
   async headers() {
     return [
       {
@@ -42,7 +53,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' https://ssl.gstatic.com; connect-src 'self' https://*.supabase.co https://*.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' https://ssl.gstatic.com https://*.gstatic.com; connect-src 'self' https://*.supabase.co https://*.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self';",
           },
         ],
       },
