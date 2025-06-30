@@ -16,6 +16,9 @@ if (!supabaseAnonKey) {
 // Standardized storage key for all clients
 const STORAGE_KEY = 'clickmemory-auth'
 
+// Check if we're in production
+const isProduction = process.env.NODE_ENV === 'production'
+
 // Only create clients if required environment variables are available
 export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl!, supabaseAnonKey!, {
   auth: {
@@ -23,7 +26,18 @@ export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUr
     storageKey: STORAGE_KEY,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce'
+    flowType: 'pkce',
+    // Production-specific settings
+    ...(isProduction && {
+      cookieOptions: {
+        name: STORAGE_KEY,
+        lifetime: 60 * 60 * 8, // 8 hours
+        domain: process.env.NEXT_PUBLIC_DOMAIN || undefined,
+        path: '/',
+        sameSite: 'lax',
+        secure: true
+      }
+    })
   }
 }) : null
 

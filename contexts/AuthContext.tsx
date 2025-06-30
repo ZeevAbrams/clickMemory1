@@ -339,9 +339,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Authentication service not available')
       }
 
+      // In production, try to clear session more aggressively
+      const isProduction = process.env.NODE_ENV === 'production'
+      
+      if (isProduction) {
+        // Clear any stored session data first
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('clickmemory-auth')
+          sessionStorage.clear()
+        }
+      }
+
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('AuthContext: Error during sign out:', error)
+        // In production, force redirect even if signOut fails
+        if (isProduction && typeof window !== 'undefined') {
+          window.location.href = '/auth'
+          return
+        }
         throw error
       }
       // Track sign out
@@ -352,6 +368,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('AuthContext: Failed to sign out:', error)
+      // In production, force redirect even on error
+      if (process.env.NODE_ENV === 'production' && typeof window !== 'undefined') {
+        window.location.href = '/auth'
+        return
+      }
       throw error
     }
   }

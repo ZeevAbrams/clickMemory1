@@ -7,6 +7,9 @@ export async function middleware(request: NextRequest) {
       request,
     })
 
+    // Check if we're in production
+    const isProduction = process.env.NODE_ENV === 'production'
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -20,14 +23,33 @@ export async function middleware(request: NextRequest) {
             supabaseResponse = NextResponse.next({
               request,
             })
-            cookiesToSet.forEach(({ name, value, options }) =>
-              supabaseResponse.cookies.set(name, value, options)
-            )
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // Production-specific cookie options
+              const cookieOptions = isProduction ? {
+                ...options,
+                secure: true,
+                sameSite: 'lax' as const,
+                path: '/',
+                domain: process.env.NEXT_PUBLIC_DOMAIN || undefined
+              } : options
+              supabaseResponse.cookies.set(name, value, cookieOptions)
+            })
           },
         },
         auth: {
           persistSession: true,
-          storageKey: 'clickmemory-auth'
+          storageKey: 'clickmemory-auth',
+          // Production-specific settings
+          ...(isProduction && {
+            cookieOptions: {
+              name: 'clickmemory-auth',
+              lifetime: 60 * 60 * 8, // 8 hours
+              domain: process.env.NEXT_PUBLIC_DOMAIN || undefined,
+              path: '/',
+              sameSite: 'lax',
+              secure: true
+            }
+          })
         }
       }
     )
