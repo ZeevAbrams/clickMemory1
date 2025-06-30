@@ -7,22 +7,8 @@ export interface EmailInvitation {
 }
 
 export class EmailService {
-  static async sendInvitation(invitation: EmailInvitation): Promise<boolean> {
+  static async sendInvitation(invitation: EmailInvitation, accessToken: string): Promise<boolean> {
     try {
-      // Get the current user's auth token using centralized session management
-      const supabaseModule = await import('@/lib/supabase')
-      if (!supabaseModule.supabase) {
-        console.error('Supabase client not available')
-        return false
-      }
-      
-      const session = await supabaseModule.getSession()
-      
-      if (!session?.access_token) {
-        console.error('No auth token available')
-        return false
-      }
-
       const response = await fetch('/api/send-email', {
         method: 'POST',
         headers: {
@@ -35,7 +21,7 @@ export class EmailService {
           permission: invitation.permission,
           inviterEmail: invitation.inviterEmail,
           type: 'invitation',
-          authToken: session.access_token
+          authToken: accessToken
         })
       })
 
@@ -56,23 +42,10 @@ export class EmailService {
     userEmail: string, 
     snippetTitle: string, 
     permission: 'view' | 'edit',
-    inviterEmail: string
+    inviterEmail: string,
+    accessToken: string
   ): Promise<boolean> {
     try {
-      // Get the current user's auth token using centralized session management
-      const supabaseModule = await import('@/lib/supabase')
-      if (!supabaseModule.supabase) {
-        console.error('Supabase client not available')
-        return false
-      }
-      
-      const session = await supabaseModule.getSession()
-      
-      if (!session?.access_token) {
-        console.error('No auth token available')
-        return false
-      }
-
       const response = await fetch('/api/send-email', {
         method: 'POST',
         headers: {
@@ -85,7 +58,7 @@ export class EmailService {
           permission: permission,
           inviterEmail: inviterEmail,
           type: 'notification',
-          authToken: session.access_token
+          authToken: accessToken
         })
       })
 

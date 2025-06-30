@@ -17,43 +17,49 @@ if (!supabaseAnonKey) {
 // Standardized storage key for all clients
 const STORAGE_KEY = 'clickmemory-auth'
 
-// Check if we're in production
-const isProduction = process.env.NODE_ENV === 'production'
+
+
+// Create a singleton client to prevent multiple instances
+let supabaseClient: ReturnType<typeof createClient> | null = null
 
 // Only create clients if required environment variables are available
-export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl!, supabaseAnonKey!, {
-  auth: {
-    persistSession: true,
-    storageKey: STORAGE_KEY,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-    // Production-specific settings
-    ...(isProduction && {
-      cookieOptions: {
-        name: STORAGE_KEY,
-        lifetime: 60 * 60 * 8, // 8 hours
-        domain: process.env.NEXT_PUBLIC_DOMAIN || undefined,
-        path: '/',
-        sameSite: 'lax',
-        secure: true
-      }
-    })
-  }
-}) : null
-
-// Server-side admin client for API routes with same storage key for consistency
-export const supabaseAdmin = supabaseUrl && (supabaseServiceKey || supabaseAnonKey) ? createClient(
-  supabaseUrl!,
-  (supabaseServiceKey || supabaseAnonKey)!,
-  {
+export const supabase = (() => {
+  if (!supabaseUrl || !supabaseAnonKey) return null
+  
+  // Return existing client if already created
+  if (supabaseClient) return supabaseClient
+  
+  // Create new client with Vercel-optimized settings
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-      persistSession: false,
+      persistSession: true,
       storageKey: STORAGE_KEY,
-      autoRefreshToken: false
+      autoRefreshToken: true,
+      detectSessionInUrl: false, // Disable to prevent conflicts
+      flowType: 'pkce',
+      // Remove cookie options that cause issues on Vercel
+      // Let Supabase handle storage automatically
     }
-  }
-) : null
+  })
+  
+  return supabaseClient
+})()
+
+// Server-side admin client for API routes
+export const supabaseAdmin = (() => {
+  if (!supabaseUrl || !(supabaseServiceKey || supabaseAnonKey)) return null
+  
+  return createClient(
+    supabaseUrl,
+    (supabaseServiceKey || supabaseAnonKey)!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    }
+  )
+})()
 
 // Simple session getter - let Supabase handle refresh automatically
 export const getSession = async (): Promise<Session | null> => {
@@ -92,7 +98,30 @@ export const refreshSession = async (): Promise<Session | null> => {
 // Clear session data
 export const clearSession = () => {
   if (typeof window !== 'undefined') {
+    // Clear all potential storage locations
     localStorage.removeItem(STORAGE_KEY)
     sessionStorage.clear()
+    
+    // Also clear any Supabase-related items
+    const keys = Object.keys(localStorage)
+    keys.forEach(key => {
+      if (key.includes('supabase') || key.includes('clickmemory')) {
+        localStorage.removeItem(key)
+      }
+    })
   }
+}
+
+// Cleanup function for React 19 strict mode
+export const cleanupSupabase = () => {
+  if (supabaseClient) {
+    // Remove auth state change listeners
+    supabaseClient.auth.onAuthStateChange(() => {})
+    supabaseClient = null
+  }
+}
+
+// Reset function to clear singleton (useful for testing)
+export const resetSupabase = () => {
+  supabaseClient = null
 } 

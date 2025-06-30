@@ -1,8 +1,9 @@
 'use client'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, getSession, clearSession } from '@/lib/supabase'
+import { useSupabase } from './SupabaseContext'
 import { trackEvent } from '@/lib/posthog'
+import type { PendingShare } from '@/types/database'
 
 interface AuthContextType {
   user: User | null
@@ -27,11 +28,30 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { supabase, loading: supabaseLoading } = useSupabase()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
   const [pendingSharesAccepted, setPendingSharesAccepted] = useState(0)
   const [authLoading, setAuthLoading] = useState(true)
+  const subscriptionRef = useRef<any>(null)
+
+  // Clear session data
+  const clearSession = () => {
+    if (typeof window !== 'undefined') {
+      // Clear all potential storage locations
+      localStorage.removeItem('clickmemory-auth')
+      sessionStorage.clear()
+      
+      // Also clear any Supabase-related items
+      const keys = Object.keys(localStorage)
+      keys.forEach(key => {
+        if (key.includes('supabase') || key.includes('clickmemory')) {
+          localStorage.removeItem(key)
+        }
+      })
+    }
+  }
 
   // Check for pending shares when user signs up
   const checkPendingShares = async (user: User) => {
@@ -60,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: pendingShares, error } = await supabase
         .from('pending_shares')
         .select('*')
-        .eq('email', user.email)
+        .eq('email', user.email || '')
 
       if (error) {
         console.error('Error fetching pending shares:', error)
@@ -73,8 +93,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Process each pending share
         for (const pendingShare of pendingShares) {
           try {
+            // Type guard to ensure we have the required properties
+            if (!pendingShare || typeof pendingShare !== 'object' || !('id' in pendingShare) || !('snippet_id' in pendingShare)) {
+              console.error('Invalid pending share data:', pendingShare)
+              continue
+            }
+
+            const share = pendingShare as unknown as PendingShare
+
             // Check if invitation hasn't expired
-            if (pendingShare.expires_at && new Date(pendingShare.expires_at) < new Date()) {
+            if (share.expires_at && new Date(share.expires_at) < new Date()) {
               continue
             }
 
@@ -82,9 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { error: shareError } = await supabase
               .from('shared_snippets')
               .insert([{
-                snippet_id: pendingShare.snippet_id,
+                snippet_id: share.snippet_id,
                 shared_with_user_id: user.id,
-                permission: pendingShare.permission || 'view'
+                permission: share.permission || 'view'
               }])
 
             if (shareError) {
@@ -96,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { error: deleteError } = await supabase
               .from('pending_shares')
               .delete()
-              .eq('id', pendingShare.id)
+              .eq('id', share.id)
 
             if (deleteError) {
               console.error('Error deleting pending share:', deleteError)
@@ -129,13 +157,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    if (!supabase) return
+    if (!supabase || supabaseLoading) return
 
-    // Get initial session using simplified session management
+    // Get initial session
     const getInitialSession = async () => {
       try {
-        const session = await getSession()
-        if (session) {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          console.error('Error getting initial session:', error)
+        } else if (session) {
           setUser(session.user)
           setSession(session)
         }
@@ -150,8 +180,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getInitialSession()
 
-    // Listen for auth changes
-    if (supabase) {
+    // Listen for auth changes - only set up one subscription
+    if (supabase && !subscriptionRef.current) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           console.log('Auth state change:', event, session ? 'has session' : 'no session')
@@ -181,11 +211,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       )
 
-      return () => {
-        subscription.unsubscribe()
+      subscriptionRef.current = subscription
+    }
+
+    // Cleanup function for React 19 strict mode
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
       }
     }
-  }, [supabase])
+  }, [supabase, supabaseLoading])
 
   const signOut = async () => {
     try {

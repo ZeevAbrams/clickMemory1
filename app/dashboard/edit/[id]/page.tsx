@@ -1,37 +1,49 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useParams, useRouter } from 'next/navigation'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet } from '@/types/database'
 import SnippetForm from '@/components/SnippetForm'
 
 export default function EditSnippetPage() {
   const params = useParams()
+  const router = useRouter()
+  const { supabase } = useSupabase()
   const [snippet, setSnippet] = useState<Snippet | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchSnippet = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase || !params.id) return;
 
     try {
       const { data, error } = await supabase
         .from('snippets')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', params.id as string)
         .single()
 
       if (error) throw error
-      setSnippet(data)
+      setSnippet(data as Snippet)
     } catch (error) {
       console.error('Error fetching snippet:', error)
     } finally {
       setLoading(false)
     }
-  }, [params.id])
+  }, [params.id, supabase])
 
   useEffect(() => {
     fetchSnippet()
   }, [fetchSnippet])
+
+  // Handle form save
+  const handleSave = () => {
+    router.push('/dashboard')
+  }
+
+  // Handle form cancel
+  const handleCancel = () => {
+    router.push('/dashboard')
+  }
 
   if (loading) {
     return (
@@ -49,5 +61,5 @@ export default function EditSnippetPage() {
     )
   }
 
-  return <SnippetForm snippet={snippet} isEdit={true} />
+  return <SnippetForm snippet={snippet} onSave={handleSave} onCancel={handleCancel} />
 } 

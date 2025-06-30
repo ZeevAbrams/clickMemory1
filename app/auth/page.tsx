@@ -1,13 +1,14 @@
 'use client'
 import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
-import { supabase } from '@/lib/supabase'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
 import Image from 'next/image'
 
 function AuthPageContent() {
+  const { supabase, loading: supabaseLoading } = useSupabase()
   const { user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -31,6 +32,20 @@ function AuthPageContent() {
   }, [])
 
   // Check if supabase client is available
+  if (supabaseLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light via-background to-secondary-light p-4">
+        <div className="max-w-md w-full space-y-8 p-10 bg-gradient-card rounded-3xl shadow-glow border border-custom">
+          <div className="text-center">
+            <Image src="/FullImage_clickMemory.png" alt="ClickMemory logo" className="mx-auto mb-4 w-20 h-20 rounded-2xl shadow-glow" width={80} height={80} />
+            <h2 className="text-4xl font-bold text-primary mb-2">ClickMemory</h2>
+            <p className="text-secondary text-lg">Loading...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!supabase) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light via-background to-secondary-light p-4">

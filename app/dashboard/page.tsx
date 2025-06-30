@@ -1,183 +1,140 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
+import { Plus, Search, Filter } from 'lucide-react'
+import Link from 'next/link'
 import SnippetCard from '@/components/SnippetCard'
-import { Search, RefreshCw, MousePointer } from 'lucide-react'
-import { CONTEXT_MENU_SNIPPET_LIMIT, TOTAL_SNIPPET_LIMIT } from '@/lib/snippetIdeas'
 
-export default function Dashboard() {
+
+export default function DashboardPage() {
+  const { supabase } = useSupabase()
   const { user, checkPendingShares } = useAuth()
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [checkingPending, setCheckingPending] = useState(false)
-  const [contextMenuCount, setContextMenuCount] = useState(0)
-  const [totalSnippetCount, setTotalSnippetCount] = useState(0)
+  const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all')
 
-  const fetchSnippets = useCallback(async () => {
-    if (!user || !supabase) return;
+  const loadSnippets = useCallback(async () => {
+    if (!supabase || !user) return
 
+    setLoading(true)
     try {
-      // Fetch own snippets
-      const { data: ownSnippets, error: ownError } = await supabase
+      const { data, error } = await supabase
         .from('snippets')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
 
-      if (ownError) throw ownError
+      if (error) throw error
 
-      // Fetch shared snippets
-      const { data: sharedSnippets, error: sharedError } = await supabase
-        .from('shared_snippets')
-        .select(`
-          snippet_id,
-          permission,
-          snippets (*)
-        `)
-        .eq('shared_with_user_id', user?.id)
-
-      if (sharedError) throw sharedError
-
-      // Combine own snippets with shared snippets
-      const ownSnippetsList = ownSnippets || []
-      const sharedSnippetsList = (sharedSnippets || []).map(share => ({
-        ...share.snippets,
-        is_shared: true,
-        shared_permission: share.permission
-      }))
-
-      const allSnippets = [...ownSnippetsList, ...sharedSnippetsList]
-      
-      // Sort by updated_at
-      allSnippets.sort((a, b) => 
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      )
-
-      setSnippets(allSnippets)
-      
-      // Calculate context menu count (only own snippets can be in context menu)
-      const ownContextMenuCount = ownSnippetsList.filter(snippet => snippet.is_public).length
-      setContextMenuCount(ownContextMenuCount)
-
-      // Set total snippet count
-      setTotalSnippetCount(allSnippets.length)
+      setSnippets(data || [])
     } catch (error) {
-      console.error('Error fetching snippets:', error)
+      console.error('Error loading snippets:', error)
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [supabase, user])
 
   useEffect(() => {
     if (user) {
-      fetchSnippets()
+      loadSnippets()
+      checkPendingShares()
     }
-  }, [user, fetchSnippets])
+  }, [user, supabase, loadSnippets, checkPendingShares])
 
-  const handleCheckPendingShares = async () => {
-    setCheckingPending(true)
-    try {
-      await checkPendingShares()
-      // Refresh snippets after checking pending shares
-      await fetchSnippets()
-    } catch (error) {
-      console.error('Error checking pending shares:', error)
-    } finally {
-      setCheckingPending(false)
-    }
-  }
-
-  const filteredSnippets = snippets.filter(snippet =>
-    snippet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    snippet.content.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredSnippets = snippets.filter(snippet => {
+    const matchesSearch = snippet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         snippet.content.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesFilter = filter === 'all' || 
+                         (filter === 'public' && snippet.is_public) ||
+                         (filter === 'private' && !snippet.is_public)
+    
+    return matchesSearch && matchesFilter
+  })
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent shadow-glow"></div>
+      <div className="max-w-6xl mx-auto p-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-3 text-text-primary">Loading snippets...</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6">
-        <div>
-          <h1 className="text-4xl font-bold text-text-primary mb-2">My Snippets</h1>
-          <p className="text-secondary text-lg">Store and organize your thoughts</p>
-          <div className="flex items-center space-x-6 mt-2">
-            <div className="flex items-center space-x-2">
-              <MousePointer className="h-4 w-4 text-primary" />
-              <span className="text-sm text-muted">
-                Context Menu: {contextMenuCount}/{CONTEXT_MENU_SNIPPET_LIMIT} snippets
-              </span>
-              {contextMenuCount >= CONTEXT_MENU_SNIPPET_LIMIT && (
-                <span className="text-xs text-red-500 font-medium">(Limit reached)</span>
-              )}
-            </div>
-            <div className="flex items-center space-x-2 group relative">
-              <div className="h-4 w-4 text-secondary">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-              </div>
-              <span className="text-sm text-muted">
-                Total: {totalSnippetCount}/{TOTAL_SNIPPET_LIMIT} snippets
-              </span>
-              {totalSnippetCount >= TOTAL_SNIPPET_LIMIT && (
-                <span className="text-xs text-red-500 font-medium">(Limit reached)</span>
-              )}
-              {totalSnippetCount >= TOTAL_SNIPPET_LIMIT * 0.8 && totalSnippetCount < TOTAL_SNIPPET_LIMIT && (
-                <span className="text-xs text-yellow-500 font-medium">(Approaching limit)</span>
-              )}
-              {/* Tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                Limited to {TOTAL_SNIPPET_LIMIT} snippets in the free version
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-              </div>
-            </div>
-          </div>
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-text-primary">My Snippets</h1>
+        <Link
+          href="/dashboard/new"
+          className="flex items-center px-6 py-3 bg-gradient-primary text-white rounded-2xl hover:bg-primary-hover transition-all font-semibold"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          New Snippet
+        </Link>
+      </div>
+
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary h-4 w-4" />
+          <input
+            type="text"
+            placeholder="Search snippets..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted"
+          />
         </div>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={handleCheckPendingShares}
-            disabled={checkingPending}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-secondary hover:text-primary hover:bg-primary-light rounded-xl transition-all disabled:opacity-50"
-            title="Check for pending shared snippets"
+        <div className="flex items-center space-x-2">
+          <Filter className="h-4 w-4 text-secondary" />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as 'all' | 'public' | 'private')}
+            className="px-4 py-3 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${checkingPending ? 'animate-spin' : ''}`} />
-            {checkingPending ? 'Checking...' : 'Check Pending'}
-          </button>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted h-5 w-5" />
-            <input
-              type="text"
-              placeholder="Search snippets..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 pr-6 py-4 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted shadow-card w-full lg:w-80 transition-all"
-            />
-          </div>
+            <option value="all">All Snippets</option>
+            <option value="public">Public Only</option>
+            <option value="private">Private Only</option>
+          </select>
         </div>
       </div>
 
+      {/* Snippets Grid */}
       {filteredSnippets.length === 0 ? (
-        <div className="text-center py-16 bg-gradient-card rounded-3xl border border-custom shadow-card">
-          <div className="text-6xl mb-4">🧠</div>
-          <p className="text-secondary text-xl font-medium mb-2">No snippets found</p>
-          <p className="text-muted">Create your first snippet to get started</p>
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">📝</div>
+          <h3 className="text-xl font-semibold text-text-primary mb-2">
+            {searchTerm || filter !== 'all' ? 'No snippets found' : 'No snippets yet'}
+          </h3>
+          <p className="text-secondary mb-6">
+            {searchTerm || filter !== 'all' 
+              ? 'Try adjusting your search or filter criteria'
+              : 'Create your first snippet to get started'
+            }
+          </p>
+          {!searchTerm && filter === 'all' && (
+            <Link
+              href="/dashboard/new"
+              className="inline-flex items-center px-6 py-3 bg-gradient-primary text-white rounded-2xl hover:bg-primary-hover transition-all font-semibold"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Create Your First Snippet
+            </Link>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSnippets.map((snippet) => (
-            <SnippetCard 
-              key={snippet.id} 
-              snippet={snippet} 
-              onUpdate={fetchSnippets}
+            <SnippetCard
+              key={snippet.id}
+              snippet={snippet}
+              onUpdate={loadSnippets}
             />
           ))}
         </div>

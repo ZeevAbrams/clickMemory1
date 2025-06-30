@@ -1,39 +1,45 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet, SharedSnippet, Profile } from '@/types/database'
 import { Trash2, Mail, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
+// Extended type for shared snippets with profile
+interface SharedSnippetWithProfile extends SharedSnippet {
+  profile: Profile;
+}
+
 export default function ShareSnippetPage() {
   const params = useParams()
+  const { supabase } = useSupabase()
   const [snippet, setSnippet] = useState<Snippet | null>(null)
-  const [sharedWith, setSharedWith] = useState<(SharedSnippet & { profile: Profile })[]>([])
+  const [sharedWith, setSharedWith] = useState<SharedSnippetWithProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [shareEmail, setShareEmail] = useState('')
   const [sharePermission, setSharePermission] = useState<'view' | 'edit'>('view')
   const [sharing, setSharing] = useState(false)
 
   const fetchSnippetAndShares = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase || !params.id) return;
 
     try {
       // Fetch snippet
       const { data: snippetData, error: snippetError } = await supabase
         .from('snippets')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', params.id as string)
         .single()
 
       if (snippetError) throw snippetError
-      setSnippet(snippetData)
+      setSnippet(snippetData as Snippet)
 
       // Fetch shared snippets
       const { data: sharesData, error: sharesError } = await supabase
         .from('shared_snippets')
         .select('*')
-        .eq('snippet_id', params.id)
+        .eq('snippet_id', params.id as string)
 
       if (sharesError) throw sharesError
 
@@ -48,7 +54,7 @@ export default function ShareSnippetPage() {
         if (profilesError) throw profilesError
 
         // Combine shared snippets with profiles
-        const combinedData = sharesData.map(share => {
+        const combinedData: SharedSnippetWithProfile[] = sharesData.map(share => {
           const profile = profilesData?.find(p => p.id === share.shared_with_user_id)
           return {
             ...share,
@@ -65,7 +71,7 @@ export default function ShareSnippetPage() {
     } finally {
       setLoading(false)
     }
-  }, [params.id])
+  }, [params.id, supabase])
 
   useEffect(() => {
     fetchSnippetAndShares()

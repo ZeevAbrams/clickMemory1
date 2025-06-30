@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet } from '@/types/database'
 import { X, Check } from 'lucide-react'
 import { EmailService } from '@/lib/emailService'
@@ -15,7 +15,8 @@ interface SharePopupProps {
 }
 
 export default function SharePopup({ snippet, isOpen, onClose, onShareSuccess }: SharePopupProps) {
-  const { user } = useAuth()
+  const { supabase } = useSupabase()
+  const { user, session } = useAuth()
   const [email, setEmail] = useState('')
   const [permission, setPermission] = useState<'view' | 'edit'>('view')
   const [loading, setLoading] = useState(false)
@@ -27,6 +28,12 @@ export default function SharePopup({ snippet, isOpen, onClose, onShareSuccess }:
     // Check if supabase client is available
     if (!supabase) {
       alert('Service temporarily unavailable. Please try again later.')
+      return
+    }
+
+    // Check if we have a session token
+    if (!session?.access_token) {
+      alert('Authentication required. Please log in again.')
       return
     }
 
@@ -56,7 +63,7 @@ export default function SharePopup({ snippet, isOpen, onClose, onShareSuccess }:
           snippetId: snippet.id,
           permission: permission,
           inviterEmail: user?.email || 'Unknown'
-        })
+        }, session.access_token)
 
         if (emailSent) {
           // Track successful invitation

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SupabaseProvider } from '@/contexts/SupabaseContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import PendingSharesNotification from '@/components/PendingSharesNotification'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -36,10 +37,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <AuthProvider>
-            <PendingSharesNotification />
-            {children}
-          </AuthProvider>
+          <SupabaseProvider>
+            <AuthProvider>
+              <PendingSharesNotification />
+              {children}
+            </AuthProvider>
+          </SupabaseProvider>
         </ErrorBoundary>
       </body>
     </html>

@@ -1,14 +1,21 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import SnippetCard from '@/components/SnippetCard'
 import { Search } from 'lucide-react'
 
+// Extended Snippet type for shared snippets
+interface SharedSnippet extends Snippet {
+  is_shared: boolean;
+  shared_permission: string;
+}
+
 export default function SharedSnippetsPage() {
+  const { supabase } = useSupabase()
   const { user } = useAuth()
-  const [sharedSnippets, setSharedSnippets] = useState<Snippet[]>([])
+  const [sharedSnippets, setSharedSnippets] = useState<SharedSnippet[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -36,7 +43,7 @@ export default function SharedSnippetsPage() {
         if (snippetsError) throw snippetsError
 
         // Combine snippets with their sharing info
-        const transformedSnippets = (snippetsData || []).map(snippet => {
+        const transformedSnippets: SharedSnippet[] = (snippetsData || []).map(snippet => {
           const shareInfo = sharedData.find(share => share.snippet_id === snippet.id)
           return {
             ...snippet,
@@ -54,7 +61,7 @@ export default function SharedSnippetsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, supabase])
 
   useEffect(() => {
     if (user) {

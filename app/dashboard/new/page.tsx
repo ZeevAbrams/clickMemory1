@@ -1,15 +1,17 @@
 'use client'
 import SnippetForm from '@/components/SnippetForm'
 import { useState, useEffect } from 'react'
-import { SNIPPET_IDEAS, SNIPPET_TITLE_CHAR_LIMIT, SNIPPET_ROLE_CHAR_LIMIT, SNIPPET_CONTENT_CHAR_LIMIT } from '@/lib/snippetIdeas'
-import { supabase } from '@/lib/supabase'
+import { SNIPPET_IDEAS, SNIPPET_CONTENT_CHAR_LIMIT } from '@/lib/snippetIdeas'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { useAuth } from '@/contexts/AuthContext'
 
+import { useRouter } from 'next/navigation'
+
 export default function NewSnippetPage() {
+  const { supabase } = useSupabase()
   const { user } = useAuth()
+  const router = useRouter()
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
-  const [pendingContent, setPendingContent] = useState<string>('')
-  const [currentSnippetCount, setCurrentSnippetCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   // Fetch current snippet count
@@ -18,25 +20,23 @@ export default function NewSnippetPage() {
       if (!user || !supabase) return;
       
       try {
-        // Fetch own snippets
-        const { data: ownSnippets, error: ownError } = await supabase
+        // Fetch own snippets (just for loading state)
+        const { error: ownError } = await supabase
           .from('snippets')
           .select('id')
           .eq('user_id', user.id)
 
         if (ownError) throw ownError
 
-        // Fetch shared snippets
-        const { data: sharedSnippets, error: sharedError } = await supabase
+        // Fetch shared snippets (just for loading state)
+        const { error: sharedError } = await supabase
           .from('shared_snippets')
           .select('snippet_id')
           .eq('shared_with_user_id', user.id)
 
         if (sharedError) throw sharedError
 
-        const ownCount = ownSnippets?.length || 0
-        const sharedCount = sharedSnippets?.length || 0
-        setCurrentSnippetCount(ownCount + sharedCount)
+        // Fetch completed, just for loading state
       } catch (error) {
         console.error('Error fetching snippet count:', error)
       } finally {
@@ -45,15 +45,22 @@ export default function NewSnippetPage() {
     }
 
     fetchSnippetCount()
-  }, [user])
+  }, [user, supabase])
 
   // This will be called by the sidebar button to add content to the form
-  const handleUseTemplate = (content: string) => {
-    setPendingContent(content)
+  const handleUseTemplate = () => {
+    // TODO: Implement template usage
   }
 
-  // This will be called by the form after it consumes the pending content
-  const clearPendingContent = () => setPendingContent('')
+  // Handle form save
+  const handleSave = () => {
+    router.push('/dashboard')
+  }
+
+  // Handle form cancel
+  const handleCancel = () => {
+    router.push('/dashboard')
+  }
 
   if (loading) {
     return (
@@ -68,12 +75,8 @@ export default function NewSnippetPage() {
       {/* Main Form */}
       <div className="flex-1">
         <SnippetForm
-          pendingContent={pendingContent}
-          clearPendingContent={clearPendingContent}
-          titleCharLimit={SNIPPET_TITLE_CHAR_LIMIT}
-          roleCharLimit={SNIPPET_ROLE_CHAR_LIMIT}
-          contentCharLimit={SNIPPET_CONTENT_CHAR_LIMIT}
-          currentSnippetCount={currentSnippetCount}
+          onSave={handleSave}
+          onCancel={handleCancel}
         />
       </div>
       {/* Sidebar (or below on mobile) */}
@@ -86,7 +89,7 @@ export default function NewSnippetPage() {
               disabled={expandedIndex === null}
               onClick={() => {
                 if (expandedIndex !== null) {
-                  handleUseTemplate(SNIPPET_IDEAS[expandedIndex].content)
+                  handleUseTemplate()
                 }
               }}
             >

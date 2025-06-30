@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet } from '@/types/database'
-import { supabase } from '@/lib/supabase'
 import { Copy, Edit, Trash2, Share, Lock, Users, MousePointer, Plus } from 'lucide-react'
 import Link from 'next/link'
 import SharePopup from './SharePopup'
@@ -14,10 +14,12 @@ interface SnippetCardProps {
 }
 
 export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
+  const { supabase } = useSupabase()
   const [copying, setCopying] = useState(false)
   const [showSharePopup, setShowSharePopup] = useState(false)
   const [updatingContextMenu, setUpdatingContextMenu] = useState(false)
   const [copyingToMySnippets, setCopyingToMySnippets] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const copyToClipboard = async () => {
     if (!supabase) return;
@@ -93,6 +95,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
     if (!supabase) return;
     if (!confirm('Are you sure you want to delete this snippet?')) return
 
+    setLoading(true)
     try {
       const { error } = await supabase
         .from('snippets')
@@ -117,6 +120,8 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
         snippetId: snippet.id,
         error: error instanceof Error ? error.message : 'Unknown error'
       })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -294,6 +299,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
             {canDelete && (
               <button
                 onClick={deleteSnippet}
+                disabled={loading}
                 className="inline-flex items-center px-3 py-2 text-sm text-danger hover:text-red-800 hover:bg-red-50 rounded-xl transition-all"
                 title="Delete"
               >
