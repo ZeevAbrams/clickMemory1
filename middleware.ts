@@ -54,31 +54,28 @@ export async function middleware(request: NextRequest) {
       }
     )
 
-    // Add timeout to prevent hanging
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Middleware timeout')), 5000)
-    })
-
-    // Get and refresh session with timeout
-    const sessionPromise = supabase.auth.getSession()
-    
-    const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
-    
-    // If session exists but is close to expiring, refresh it
-    if (session?.access_token) {
-      const expiresAt = session.expires_at
-      const now = Math.floor(Date.now() / 1000)
-      const timeUntilExpiry = expiresAt - now
-      
-      // Refresh if session expires in less than 5 minutes
-      if (timeUntilExpiry < 300) {
-        try {
-          const refreshPromise = supabase.auth.refreshSession()
-          await Promise.race([refreshPromise, timeoutPromise])
-        } catch (refreshError) {
-          console.error('Session refresh failed:', refreshError)
-          // Continue with existing session even if refresh fails
+    // Simple session check for page navigation (not API routes)
+    // API routes use Bearer token authentication
+    if (!request.nextUrl.pathname.startsWith('/api/')) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        // Only log session status for debugging
+        if (session?.access_token) {
+          const expiresAt = session.expires_at
+          if (expiresAt) {
+            const now = Math.floor(Date.now() / 1000)
+            const timeUntilExpiry = expiresAt - now
+            
+            // Log if session is close to expiring but don't refresh automatically
+            if (timeUntilExpiry < 300) {
+              console.log('Middleware: Session expires soon, but letting client handle refresh')
+            }
+          }
         }
+      } catch (sessionError) {
+        console.error('Middleware: Session check failed:', sessionError)
+        // Continue without session - don't block the request
       }
     }
 

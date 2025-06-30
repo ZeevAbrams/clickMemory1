@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserApiKey } from '@/types/database'
 import { Copy, Trash2, Key, AlertTriangle } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { getSession } from '@/lib/supabase'
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -14,13 +14,14 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState<string | null>(null)
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(false)
 
   const generateCSRFToken = useCallback(async () => {
     if (!user) return; // Don't generate if no user
     
     try {
-      // Get the current session token
-      const { data: { session } } = await supabase!.auth.getSession()
+      // Get the current session token using unified session management
+      const session = await getSession()
       const token = session?.access_token
       
       if (!token) {
@@ -32,8 +33,7 @@ export default function SettingsPage() {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include'
+        }
       })
       if (response.ok) {
         const data = await response.json()
@@ -56,16 +56,9 @@ export default function SettingsPage() {
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
 
     try {
-      // Use a simpler approach - just get the session directly without complex token handling
-      const { data: { session } } = await supabase!.auth.getSession()
+      // Use unified session management
+      const session = await getSession()
       const token = session?.access_token
-      
-      console.log('Settings: Session check:', {
-        hasSession: !!session,
-        hasToken: !!token,
-        expiresAt: session?.expires_at,
-        expiresIn: session?.expires_at ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) : null
-      })
       
       if (!token) {
         console.error('No session token available')
@@ -79,7 +72,6 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        credentials: 'include',
         signal: controller.signal
       })
       
@@ -106,20 +98,26 @@ export default function SettingsPage() {
   }, [user])
 
   useEffect(() => {
-    // Only initialize once when user is available and not loading
-    if (user && !authLoading && !initialized) {
+    // Wait for auth to finish loading AND have a user before initializing
+    // Also prevent multiple simultaneous initializations
+    if (!authLoading && user && !initialized && !isInitializing) {
+      setIsInitializing(true)
       setInitialized(true)
-      // Call loadApiKeys first, then generateCSRFToken after it completes
-      loadApiKeys().then(() => {
-        // Add a small delay to ensure session is established
-        setTimeout(() => {
-          generateCSRFToken()
-        }, 100)
-      }).catch((error) => {
-        console.error('Error loading API keys:', error)
-      })
+      
+      // Add a small delay to ensure session is fully established
+      setTimeout(async () => {
+        try {
+          await loadApiKeys()
+          // Generate CSRF token after API keys are loaded
+          await generateCSRFToken()
+        } catch (error) {
+          console.error('Error during initialization:', error)
+        } finally {
+          setIsInitializing(false)
+        }
+      }, 200)
     }
-  }, [user, authLoading, initialized, generateCSRFToken, loadApiKeys])
+  }, [user, authLoading, initialized, isInitializing, generateCSRFToken, loadApiKeys])
 
   // Show loading state while auth is loading
   if (authLoading) {
@@ -158,7 +156,7 @@ export default function SettingsPage() {
 
     setGenerating(true)
     try {
-      const { data: { session } } = await supabase!.auth.getSession()
+      const session = await getSession()
       const token = session?.access_token
       
       if (!token) {
@@ -173,7 +171,6 @@ export default function SettingsPage() {
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': csrfToken
         },
-        credentials: 'include',
         body: JSON.stringify({ name: newKeyName })
       })
       
@@ -201,7 +198,7 @@ export default function SettingsPage() {
     }
 
     try {
-      const { data: { session } } = await supabase!.auth.getSession()
+      const session = await getSession()
       const token = session?.access_token
       
       if (!token) {
@@ -215,8 +212,7 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': csrfToken || ''
-        },
-        credentials: 'include'
+        }
       })
       
       if (response.ok) {

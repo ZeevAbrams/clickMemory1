@@ -1,17 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { Snippet } from '@/types/database'
+import { Snippet, PendingShare } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 import { CheckCircle, AlertCircle, Copy } from 'lucide-react'
-
-interface PendingShare {
-  id: string
-  snippet_id: string
-  email: string
-  created_at: string
-  expires_at: string
-}
 
 function InvitePageContent() {
   const params = useParams()

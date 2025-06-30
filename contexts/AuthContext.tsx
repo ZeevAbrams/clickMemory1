@@ -1,8 +1,8 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { identifyUser, trackEvent } from '@/lib/posthog'
+import { supabase, getSession, clearSession } from '@/lib/supabase'
+import { trackEvent } from '@/lib/posthog'
 
 interface AuthContextType {
   user: User | null
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [pendingSharesAccepted, setPendingSharesAccepted] = useState(0)
-  const [lastRefreshTime, setLastRefreshTime] = useState(0)
+  const [authLoading, setAuthLoading] = useState(true)
 
   // Check for pending shares when user signs up
   const checkPendingShares = async (user: User) => {
@@ -126,211 +126,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    let isMounted = true
-    let timeoutId: NodeJS.Timeout
-    let refreshIntervalId: NodeJS.Timeout
+    if (!supabase) return
 
-    const initializeAuth = async () => {
+    // Get initial session using unified session management
+    const getInitialSession = async () => {
       try {
-        // Check if supabase client is available
-        if (!supabase) {
-          console.error('Supabase client not initialized - missing environment variables')
-          if (isMounted) {
-            setUser(null)
-            setLoading(false)
-          }
-          return
-        }
-
-        // Set a timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error('Auth timeout')), 10000)
-        })
-
-        // Get initial session with timeout
-        const sessionPromise = supabase.auth.getSession()
-        
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
-        
-        if (!isMounted) return
-
-        console.log('AuthContext: Session loaded:', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          expiresAt: session?.expires_at,
-          expiresIn: session?.expires_at ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) : null
-        })
-
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-        setLoading(false)
-        
-        // Track user identification
-        if (currentUser) {
-          identifyUser(currentUser.id, currentUser.email)
-          trackEvent('user_logged_in', {
-            userId: currentUser.id,
-            email: currentUser.email
-          })
-          
-          // Check if session is close to expiring and refresh if needed
-          if (session?.expires_at) {
-            const expiresAt = session.expires_at
-            const now = Math.floor(Date.now() / 1000)
-            const timeUntilExpiry = expiresAt - now
-            
-            // Temporarily disable aggressive refresh to debug the issue
-            // if (timeUntilExpiry < 300 && timeSinceLastRefresh > 30) {
-            //   console.log('Session close to expiry, refreshing...')
-            //   try {
-            //     setLastRefreshTime(now)
-            //     await supabase.auth.refreshSession()
-            //   } catch (refreshError) {
-            //     console.error('Initial session refresh failed:', refreshError)
-            //   }
-            // }
-          }
-          
-          // Don't await this to prevent blocking
-          checkPendingShares(currentUser).catch(error => {
-            console.error('Error checking pending shares:', error)
-          })
+        const session = await getSession()
+        if (session && session.access_token) {
+          setUser(session.user)
+          setLoading(false)
+          setAuthLoading(false)
+        } else {
+          setLoading(false)
+          setAuthLoading(false)
         }
       } catch (error) {
-        console.error('Auth initialization error:', error)
-        if (isMounted) {
-          setUser(null)
-          setLoading(false)
-        }
-      } finally {
-        if (timeoutId) clearTimeout(timeoutId)
+        console.error('AuthContext: Error in getInitialSession:', error)
+        setLoading(false)
+        setAuthLoading(false)
       }
     }
 
-    initializeAuth()
-
-    // Set up periodic session refresh (every 5 minutes instead of 10)
-    const setupSessionRefresh = () => {
-      if (supabase) {
-        refreshIntervalId = setInterval(async () => {
-          try {
-            if (!supabase) return
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session?.access_token && session.expires_at) {
-              const expiresAt = session.expires_at
-              const now = Math.floor(Date.now() / 1000)
-              const timeUntilExpiry = expiresAt - now
-              
-              // Temporarily disable periodic refresh to debug the issue
-              // const timeSinceLastRefresh = now - lastRefreshTime
-              // if (timeUntilExpiry < 300 && timeSinceLastRefresh > 30) {
-              //   console.log('Refreshing session...')
-              //   setLastRefreshTime(now)
-              //   await supabase.auth.refreshSession()
-              // }
-            } else if (!session?.access_token) {
-              // No session, redirect to login
-              console.log('No session found, redirecting to login')
-              setUser(null)
-              if (typeof window !== 'undefined') {
-                window.location.href = '/auth'
-              }
-            }
-          } catch (error) {
-            console.error('Session refresh failed:', error)
-            // If refresh fails, clear user and redirect to login
-            setUser(null)
-            if (typeof window !== 'undefined') {
-              window.location.href = '/auth'
-            }
-          }
-        }, 300000) // 5 minutes (more frequent)
-      }
-    }
-
-    setupSessionRefresh()
-
-    // Handle page visibility changes (tab switching)
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible' && supabase) {
-        try {
-          // Check session when user returns to tab
-          const { data: { session } } = await supabase.auth.getSession()
-          if (session?.access_token && session.expires_at) {
-            const expiresAt = session.expires_at
-            const now = Math.floor(Date.now() / 1000)
-            const timeUntilExpiry = expiresAt - now
-            
-            // Temporarily disable tab switch refresh to debug the issue
-            // const timeSinceLastRefresh = now - lastRefreshTime
-            // if (timeUntilExpiry < 300 && timeSinceLastRefresh > 30) {
-            //   console.log('Refreshing session after tab switch...')
-            //   setLastRefreshTime(now)
-            //   await supabase.auth.refreshSession()
-            // }
-          }
-        } catch (error) {
-          console.error('Session refresh after tab switch failed:', error)
-        }
-      }
-    }
-
-    // Add page visibility listener
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    getInitialSession()
 
     // Listen for auth changes
     if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          if (!isMounted) return
-          
-          const newUser = session?.user ?? null
-          
-          // Only update user state if it actually changed
-          if (newUser?.id !== user?.id) {
-            setUser(newUser)
-          }
-          
-          // Only set loading to false on initial load or sign out
-          if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
+          if (event === 'SIGNED_IN' && session && session.access_token) {
+            setUser(session.user)
             setLoading(false)
-          }
-
-          if (event === 'SIGNED_IN' && newUser) {
-            identifyUser(newUser.id, newUser.email)
-            trackEvent('user_logged_in', {
-              userId: newUser.id,
-              email: newUser.email
-            })
-            // Don't await this to prevent blocking
-            checkPendingShares(newUser).catch(error => {
-              console.error('Error checking pending shares:', error)
-            })
+            setAuthLoading(false)
           } else if (event === 'SIGNED_OUT') {
-            trackEvent('user_logged_out')
-          } else if (event === 'TOKEN_REFRESHED' && newUser) {
-            // Session was refreshed successfully - don't trigger any state changes
-            console.log('Session refreshed successfully')
+            setUser(null)
+            setLoading(false)
+            setAuthLoading(false)
+            // Clear unified session management
+            clearSession()
+            // Clear any stored session data
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('clickmemory-auth')
+              sessionStorage.clear()
+            }
+          } else if (event === 'TOKEN_REFRESHED' && session && session.access_token) {
+            setUser(session.user)
+            setLoading(false)
+            setAuthLoading(false)
+          } else if (event === 'USER_UPDATED' && session && session.access_token) {
+            setUser(session.user)
+            setLoading(false)
+            setAuthLoading(false)
           }
         }
       )
 
       return () => {
-        isMounted = false
-        if (timeoutId) clearTimeout(timeoutId)
-        if (refreshIntervalId) clearInterval(refreshIntervalId)
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
         subscription.unsubscribe()
       }
-    } else {
-      return () => {
-        isMounted = false
-        if (timeoutId) clearTimeout(timeoutId)
-        if (refreshIntervalId) clearInterval(refreshIntervalId)
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
-      }
     }
-  }, [])
+  }, [supabase])
 
   const signOut = async () => {
     try {

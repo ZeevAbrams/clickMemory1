@@ -1,6 +1,5 @@
-import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
 // Type for Supabase auth response
 interface SupabaseAuthResponse {
@@ -21,86 +20,37 @@ interface SupabaseDatabaseResponse<T> {
 
 export async function GET(request: NextRequest) {
   try {
-    let supabaseResponse = NextResponse.next({
-      request,
-    })
-    
     // Check for Bearer token in Authorization header
     const authHeader = request.headers.get('Authorization')
-    let user = null
-    let authError = null
     
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '')
-      
-      // Create a Supabase client with the token
-      const supabaseWithToken = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        }
-      )
-      
-      // Get user from token with timeout
-      const { data: { user: tokenUser }, error: tokenError } = await Promise.race([
-        supabaseWithToken.auth.getUser(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000))
-      ]) as SupabaseAuthResponse
-      user = tokenUser
-      authError = tokenError
-    } else {
-      // Fallback to cookie-based authentication
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              return request.cookies.getAll()
-            },
-            setAll(cookiesToSet) {
-              cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-              supabaseResponse = NextResponse.next({
-                request,
-              })
-              cookiesToSet.forEach(({ name, value, options }) =>
-                supabaseResponse.cookies.set(name, value, options)
-              )
-            },
-          },
-          auth: {
-            persistSession: true,
-            storageKey: 'clickmemory-auth'
-          }
-        }
-      )
-      
-      // Get the authenticated user with timeout
-      const { data: { user: cookieUser }, error: cookieError } = await Promise.race([
-        supabase.auth.getUser(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000))
-      ]) as SupabaseAuthResponse
-      user = cookieUser
-      authError = cookieError
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ 
+        error: 'Authorization header with Bearer token required' 
+      }, { status: 401 })
     }
+    
+    const token = authHeader.replace('Bearer ', '')
+    
+    // Use the existing supabaseAdmin client for token verification
+    if (!supabaseAdmin) {
+      return NextResponse.json({ 
+        error: 'Service configuration error' 
+      }, { status: 503 })
+    }
+    
+    // Get user from token with timeout
+    const { data: { user }, error: authError } = await Promise.race([
+      supabaseAdmin.auth.getUser(token),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000))
+    ]) as SupabaseAuthResponse
     
     if (authError || !user) {
       return NextResponse.json({ 
-        error: 'Not authenticated. Please log in again.' 
+        error: 'Invalid or expired token. Please log in again.' 
       }, { status: 401 })
     }
 
-    // Create Supabase client with service role key for admin operations
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-    
+    // Use the existing supabaseAdmin client for database operations
     const promise = supabaseAdmin
       .from('user_api_keys')
       .select('id, name, is_active, last_used_at, created_at, expires_at')
