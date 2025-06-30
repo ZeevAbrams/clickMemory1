@@ -1,12 +1,13 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
-import { User } from '@supabase/supabase-js'
+import { User, Session } from '@supabase/supabase-js'
 import { supabase, getSession, clearSession } from '@/lib/supabase'
 import { trackEvent } from '@/lib/posthog'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
+  session: Session | null
   signOut: () => Promise<void>
   pendingSharesAccepted: number
   clearPendingSharesNotification: () => void
@@ -16,6 +17,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  session: null,
   signOut: async () => {},
   pendingSharesAccepted: 0,
   clearPendingSharesNotification: () => {},
@@ -27,6 +29,7 @@ export const useAuth = () => useContext(AuthContext)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [session, setSession] = useState<Session | null>(null)
   const [pendingSharesAccepted, setPendingSharesAccepted] = useState(0)
   const [authLoading, setAuthLoading] = useState(true)
 
@@ -128,18 +131,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!supabase) return
 
-    // Get initial session using unified session management
+    // Get initial session using simplified session management
     const getInitialSession = async () => {
       try {
         const session = await getSession()
-        if (session && session.access_token) {
+        if (session) {
           setUser(session.user)
-          setLoading(false)
-          setAuthLoading(false)
-        } else {
-          setLoading(false)
-          setAuthLoading(false)
+          setSession(session)
         }
+        setLoading(false)
+        setAuthLoading(false)
       } catch (error) {
         console.error('AuthContext: Error in getInitialSession:', error)
         setLoading(false)
@@ -153,27 +154,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          if (event === 'SIGNED_IN' && session && session.access_token) {
+          console.log('Auth state change:', event, session ? 'has session' : 'no session')
+          
+          if (event === 'SIGNED_IN' && session) {
             setUser(session.user)
+            setSession(session)
             setLoading(false)
             setAuthLoading(false)
           } else if (event === 'SIGNED_OUT') {
             setUser(null)
+            setSession(null)
             setLoading(false)
             setAuthLoading(false)
-            // Clear unified session management
             clearSession()
-            // Clear any stored session data
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('clickmemory-auth')
-              sessionStorage.clear()
-            }
-          } else if (event === 'TOKEN_REFRESHED' && session && session.access_token) {
+          } else if (event === 'TOKEN_REFRESHED' && session) {
             setUser(session.user)
+            setSession(session)
             setLoading(false)
             setAuthLoading(false)
-          } else if (event === 'USER_UPDATED' && session && session.access_token) {
+          } else if (event === 'USER_UPDATED' && session) {
             setUser(session.user)
+            setSession(session)
             setLoading(false)
             setAuthLoading(false)
           }
@@ -193,46 +194,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Authentication service not available')
       }
 
-      // In production, try to clear session more aggressively
-      const isProduction = process.env.NODE_ENV === 'production'
-      
-      if (isProduction) {
-        // Clear any stored session data first
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('clickmemory-auth')
-          sessionStorage.clear()
-        }
-      }
-
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('AuthContext: Error during sign out:', error)
-        // In production, force redirect even if signOut fails
-        if (isProduction && typeof window !== 'undefined') {
-          window.location.href = '/auth'
-          return
-        }
         throw error
       }
+      
       // Track sign out
       trackEvent('user_logged_out')
-      // Force redirect to /auth after sign out
-      if (typeof window !== 'undefined') {
-        window.location.href = '/auth'
-      }
+      
+      // Clear session data
+      clearSession()
     } catch (error) {
       console.error('AuthContext: Failed to sign out:', error)
-      // In production, force redirect even on error
-      if (process.env.NODE_ENV === 'production' && typeof window !== 'undefined') {
-        window.location.href = '/auth'
-        return
-      }
       throw error
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut, pendingSharesAccepted, clearPendingSharesNotification, checkPendingShares: triggerCheckPendingShares }}>
+    <AuthContext.Provider value={{ user, loading, session, signOut, pendingSharesAccepted, clearPendingSharesNotification, checkPendingShares: triggerCheckPendingShares }}>
       {children}
     </AuthContext.Provider>
   )

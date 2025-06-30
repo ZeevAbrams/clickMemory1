@@ -20,12 +20,6 @@ const STORAGE_KEY = 'clickmemory-auth'
 // Check if we're in production
 const isProduction = process.env.NODE_ENV === 'production'
 
-// Global session management to prevent conflicts
-let globalSession: Session | null = null
-let sessionPromise: Promise<Session | null> | null = null
-let sessionCacheTime: number = 0
-const SESSION_CACHE_DURATION = 5000 // 5 seconds cache
-
 // Only create clients if required environment variables are available
 export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl!, supabaseAnonKey!, {
   auth: {
@@ -61,88 +55,25 @@ export const supabaseAdmin = supabaseUrl && (supabaseServiceKey || supabaseAnonK
   }
 ) : null
 
-// Unified session management functions
-export const getSession = async () => {
+// Simple session getter - let Supabase handle refresh automatically
+export const getSession = async (): Promise<Session | null> => {
   if (!supabase) return null
   
-  // Check if we have a cached session that's still valid
-  const now = Date.now()
-  if (globalSession && globalSession.access_token && (now - sessionCacheTime) < SESSION_CACHE_DURATION) {
-    return globalSession
-  }
-  
-  // If we already have a session promise, wait for it
-  if (sessionPromise) {
-    try {
-      const result = await sessionPromise
-      return result
-    } catch (error) {
-      console.error('Session promise failed:', error)
-      sessionPromise = null
-    }
-  }
-  
-  // Create new session promise
-  
-  // Create a promise that handles the session fetching
-  const sessionFetchPromise = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession()
-      if (error) {
-        console.error('Error getting session:', error)
-        return null
-      }
-      
-      // Check if session exists but has no access token or is expired
-      if (session) {
-        const nowUnix = Math.floor(now / 1000)
-        const expiresAt = session.expires_at
-        
-        // If session is expired or has no access token, try to refresh it
-        if (!session.access_token || (expiresAt && nowUnix >= expiresAt)) {
-          try {
-            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
-            if (refreshError) {
-              console.error('Error refreshing session:', refreshError)
-              return null
-            }
-            if (refreshedSession) {
-              globalSession = refreshedSession
-              sessionCacheTime = now
-              return refreshedSession
-            }
-          } catch (refreshError) {
-            console.error('Session refresh failed:', refreshError)
-            return null
-          }
-        }
-      }
-      
-      globalSession = session
-      sessionCacheTime = now
-      return session
-    } catch (error) {
-      console.error('Session fetch failed:', error)
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) {
+      console.error('Error getting session:', error)
       return null
     }
-  }
-  
-  // Create the promise and store it
-  sessionPromise = sessionFetchPromise()
-  
-  try {
-    const result = await sessionPromise
-    // Only clear the promise after we've resolved it
-    sessionPromise = null
-    return result
+    return session
   } catch (error) {
-    console.error('Session promise failed:', error)
-    sessionPromise = null
+    console.error('Session fetch failed:', error)
     return null
   }
 }
 
-export const refreshSession = async () => {
+// Simple session refresh - only use when explicitly needed
+export const refreshSession = async (): Promise<Session | null> => {
   if (!supabase) return null
   
   try {
@@ -151,8 +82,6 @@ export const refreshSession = async () => {
       console.error('Error refreshing session:', error)
       return null
     }
-    
-    globalSession = session
     return session
   } catch (error) {
     console.error('Session refresh failed:', error)
@@ -160,8 +89,10 @@ export const refreshSession = async () => {
   }
 }
 
+// Clear session data
 export const clearSession = () => {
-  globalSession = null
-  sessionPromise = null
-  sessionCacheTime = 0
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.clear()
+  }
 } 

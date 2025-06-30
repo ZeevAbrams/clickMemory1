@@ -3,10 +3,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserApiKey } from '@/types/database'
 import { Copy, Trash2, Key, AlertTriangle } from 'lucide-react'
-import { getSession } from '@/lib/supabase'
 
 export default function SettingsPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, session } = useAuth()
   const [apiKeys, setApiKeys] = useState<UserApiKey[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -17,12 +16,10 @@ export default function SettingsPage() {
   const [isInitializing, setIsInitializing] = useState(false)
 
   const generateCSRFToken = useCallback(async () => {
-    if (!user) return; // Don't generate if no user
+    if (!user || !session) return; // Don't generate if no user or session
     
     try {
-      // Get the current session token using unified session management
-      const session = await getSession()
-      const token = session?.access_token
+      const token = session.access_token
       
       if (!token) {
         console.error('No session token available for CSRF generation')
@@ -39,26 +36,24 @@ export default function SettingsPage() {
         const data = await response.json()
         setCsrfToken(data.csrfToken)
       } else if (response.status === 401) {
-        // Session expired, but don't redirect immediately
+        // Session expired - clear token but don't redirect
         console.error('Session expired during CSRF generation')
         setCsrfToken(null)
       }
     } catch (error) {
       console.error('Error generating CSRF token:', error)
     }
-  }, [user])
+  }, [user, session])
 
   const loadApiKeys = useCallback(async () => {
-    if (!user) return; // Don't load if no user
+    if (!user || !session) return; // Don't load if no user or session
     
     setLoading(true)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
 
     try {
-      // Use unified session management
-      const session = await getSession()
-      const token = session?.access_token
+      const token = session.access_token
       
       if (!token) {
         console.error('No session token available')
@@ -79,7 +74,7 @@ export default function SettingsPage() {
         const data = await response.json()
         setApiKeys(data.api_keys || [])
       } else if (response.status === 401) {
-        // Session expired, but don't redirect immediately - let the auth context handle it
+        // Session expired - clear data but don't redirect
         console.error('Session expired during API key fetch')
         setApiKeys([])
       } else {
@@ -95,12 +90,12 @@ export default function SettingsPage() {
       clearTimeout(timeoutId)
       setLoading(false)
     }
-  }, [user])
+  }, [user, session])
 
   useEffect(() => {
     // Wait for auth to finish loading AND have a user before initializing
     // Also prevent multiple simultaneous initializations
-    if (!authLoading && user && !initialized && !isInitializing) {
+    if (!authLoading && user && session && !initialized && !isInitializing) {
       setIsInitializing(true)
       setInitialized(true)
       
@@ -117,7 +112,7 @@ export default function SettingsPage() {
         }
       }, 200)
     }
-  }, [user, authLoading, initialized, isInitializing, generateCSRFToken, loadApiKeys])
+  }, [user, session, authLoading, initialized, isInitializing, generateCSRFToken, loadApiKeys])
 
   // Show loading state while auth is loading
   if (authLoading) {
@@ -149,18 +144,17 @@ export default function SettingsPage() {
   }
 
   const generateApiKey = async () => {
-    if (!csrfToken) {
+    if (!csrfToken || !session) {
       alert('Security token not available. Please refresh the page and try again.')
       return
     }
 
     setGenerating(true)
     try {
-      const session = await getSession()
-      const token = session?.access_token
+      const token = session.access_token
       
       if (!token) {
-        alert('Session not available. Please refresh the page and try again.')
+        console.error('No session token available')
         return
       }
       
@@ -182,6 +176,11 @@ export default function SettingsPage() {
         loadApiKeys()
         // Generate new CSRF token after successful operation
         generateCSRFToken()
+      } else if (response.status === 401) {
+        // Session expired - clear token but don't redirect
+        console.error('Session expired during API key generation')
+        setCsrfToken(null)
+        alert('Session expired. Please refresh the page and try again.')
       } else {
         alert('Failed to generate API key: ' + data.error)
       }
@@ -197,12 +196,16 @@ export default function SettingsPage() {
       return
     }
 
+    if (!session) {
+      console.error('No session available')
+      return
+    }
+
     try {
-      const session = await getSession()
-      const token = session?.access_token
+      const token = session.access_token
       
       if (!token) {
-        alert('Session not available. Please refresh the page and try again.')
+        console.error('No session token available')
         return
       }
       
@@ -219,6 +222,11 @@ export default function SettingsPage() {
         loadApiKeys()
         // Generate new CSRF token after successful operation
         generateCSRFToken()
+      } else if (response.status === 401) {
+        // Session expired - clear token but don't redirect
+        console.error('Session expired during API key revocation')
+        setCsrfToken(null)
+        alert('Session expired. Please refresh the page and try again.')
       } else {
         alert('Failed to revoke API key')
       }

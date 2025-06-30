@@ -9,14 +9,14 @@ export interface EmailInvitation {
 export class EmailService {
   static async sendInvitation(invitation: EmailInvitation): Promise<boolean> {
     try {
-      // Get the current user's auth token
+      // Get the current user's auth token using centralized session management
       const supabaseModule = await import('@/lib/supabase')
       if (!supabaseModule.supabase) {
         console.error('Supabase client not available')
         return false
       }
       
-      const { data: { session } } = await supabaseModule.supabase.auth.getSession()
+      const session = await supabaseModule.getSession()
       
       if (!session?.access_token) {
         console.error('No auth token available')
@@ -59,14 +59,14 @@ export class EmailService {
     inviterEmail: string
   ): Promise<boolean> {
     try {
-      // Get the current user's auth token
+      // Get the current user's auth token using centralized session management
       const supabaseModule = await import('@/lib/supabase')
       if (!supabaseModule.supabase) {
         console.error('Supabase client not available')
         return false
       }
       
-      const { data: { session } } = await supabaseModule.supabase.auth.getSession()
+      const session = await supabaseModule.getSession()
       
       if (!session?.access_token) {
         console.error('No auth token available')
