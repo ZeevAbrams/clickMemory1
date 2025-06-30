@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 // Type for Supabase auth response
 interface SupabaseAuthResponse {
@@ -20,9 +19,11 @@ interface SupabaseDatabaseResponse<T> {
   error: unknown
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
+    let supabaseResponse = NextResponse.next({
+      request,
+    })
     
     // Check for Bearer token in Authorization header
     const authHeader = request.headers.get('Authorization')
@@ -60,20 +61,22 @@ export async function GET(request: Request) {
         {
           cookies: {
             getAll() {
-              return cookieStore.getAll()
+              return request.cookies.getAll()
             },
             setAll(cookiesToSet) {
-              try {
-                cookiesToSet.forEach(({ name, value, options }) =>
-                  cookieStore.set(name, value, options)
-                )
-              } catch {
-                // The `setAll` method was called from a Server Component.
-                // This can be ignored if you have middleware refreshing
-                // user sessions.
-              }
+              cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+              supabaseResponse = NextResponse.next({
+                request,
+              })
+              cookiesToSet.forEach(({ name, value, options }) =>
+                supabaseResponse.cookies.set(name, value, options)
+              )
             },
           },
+          auth: {
+            persistSession: true,
+            storageKey: 'clickmemory-auth'
+          }
         }
       )
       

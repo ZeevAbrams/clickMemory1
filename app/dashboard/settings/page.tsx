@@ -6,44 +6,71 @@ import { Copy, Trash2, Key, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function SettingsPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [apiKeys, setApiKeys] = useState<UserApiKey[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [newKeyName, setNewKeyName] = useState('Chrome Extension')
   const [showApiKey, setShowApiKey] = useState<string | null>(null)
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
+  const [initialized, setInitialized] = useState(false)
 
-  const generateCSRFToken = async () => {
+  const generateCSRFToken = useCallback(async () => {
+    if (!user) return; // Don't generate if no user
+    
     try {
+      // Get the current session token
+      const { data: { session } } = await supabase!.auth.getSession()
+      const token = session?.access_token
+      
+      if (!token) {
+        console.error('No session token available for CSRF generation')
+        return
+      }
+
       const response = await fetch('/api/csrf/generate', {
         method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         credentials: 'include'
       })
       if (response.ok) {
         const data = await response.json()
         setCsrfToken(data.csrfToken)
+      } else if (response.status === 401) {
+        // Session expired, but don't redirect immediately
+        console.error('Session expired during CSRF generation')
+        setCsrfToken(null)
       }
     } catch (error) {
       console.error('Error generating CSRF token:', error)
     }
-  }
-
-  const getSessionToken = useCallback(async () => {
-    if (!supabase) return null;
-    const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token
-  }, [])
+  }, [user])
 
   const loadApiKeys = useCallback(async () => {
+    if (!user) return; // Don't load if no user
+    
     setLoading(true)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
 
     try {
-      const token = await getSessionToken()
+      // Use a simpler approach - just get the session directly without complex token handling
+      const { data: { session } } = await supabase!.auth.getSession()
+      const token = session?.access_token
+      
+      console.log('Settings: Session check:', {
+        hasSession: !!session,
+        hasToken: !!token,
+        expiresAt: session?.expires_at,
+        expiresIn: session?.expires_at ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) : null
+      })
+      
       if (!token) {
-        throw new Error('User session not found')
+        console.error('No session token available')
+        setLoading(false)
+        return
       }
 
       const response = await fetch('/api/keys', {
@@ -53,12 +80,16 @@ export default function SettingsPage() {
           'Authorization': `Bearer ${token}`
         },
         credentials: 'include',
-        signal: controller.signal // Link AbortController to the fetch request
+        signal: controller.signal
       })
       
       if (response.ok) {
         const data = await response.json()
         setApiKeys(data.api_keys || [])
+      } else if (response.status === 401) {
+        // Session expired, but don't redirect immediately - let the auth context handle it
+        console.error('Session expired during API key fetch')
+        setApiKeys([])
       } else {
         console.error('Failed to load API keys, status:', response.status)
       }
@@ -72,14 +103,52 @@ export default function SettingsPage() {
       clearTimeout(timeoutId)
       setLoading(false)
     }
-  }, [getSessionToken])
+  }, [user])
 
   useEffect(() => {
-    if (user) {
-      generateCSRFToken()
-      loadApiKeys()
+    // Only initialize once when user is available and not loading
+    if (user && !authLoading && !initialized) {
+      setInitialized(true)
+      // Call loadApiKeys first, then generateCSRFToken after it completes
+      loadApiKeys().then(() => {
+        // Add a small delay to ensure session is established
+        setTimeout(() => {
+          generateCSRFToken()
+        }, 100)
+      }).catch((error) => {
+        console.error('Error loading API keys:', error)
+      })
     }
-  }, [user, loadApiKeys])
+  }, [user, authLoading, initialized, generateCSRFToken, loadApiKeys])
+
+  // Show loading state while auth is loading
+  if (authLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-card rounded-3xl shadow-card border border-custom p-8">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-3 text-text-primary">Loading settings...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if no user
+  if (!user) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-card rounded-3xl shadow-card border border-custom p-8">
+          <div className="text-center py-8">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-text-primary mb-2">Authentication Required</h2>
+            <p className="text-secondary">Please log in to access settings.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const generateApiKey = async () => {
     if (!csrfToken) {
@@ -89,7 +158,14 @@ export default function SettingsPage() {
 
     setGenerating(true)
     try {
-      const token = await getSessionToken()
+      const { data: { session } } = await supabase!.auth.getSession()
+      const token = session?.access_token
+      
+      if (!token) {
+        alert('Session not available. Please refresh the page and try again.')
+        return
+      }
+      
       const response = await fetch('/api/keys/generate', {
         method: 'POST',
         headers: { 
@@ -125,7 +201,14 @@ export default function SettingsPage() {
     }
 
     try {
-      const token = await getSessionToken()
+      const { data: { session } } = await supabase!.auth.getSession()
+      const token = session?.access_token
+      
+      if (!token) {
+        alert('Session not available. Please refresh the page and try again.')
+        return
+      }
+      
       const response = await fetch(`/api/keys/${keyId}`, {
         method: 'DELETE',
         headers: { 

@@ -13,24 +13,28 @@ if (!supabaseAnonKey) {
   console.warn('NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is missing. Please check your environment configuration.')
 }
 
+// Standardized storage key for all clients
+const STORAGE_KEY = 'clickmemory-auth'
+
 // Only create clients if required environment variables are available
 export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl!, supabaseAnonKey!, {
   auth: {
     persistSession: true,
-    storageKey: 'clickmemory-auth',
+    storageKey: STORAGE_KEY,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   }
 }) : null
 
-// Server-side admin client for API routes with different storage key
+// Server-side admin client for API routes with same storage key for consistency
 export const supabaseAdmin = supabaseUrl && (supabaseServiceKey || supabaseAnonKey) ? createClient(
   supabaseUrl!,
   (supabaseServiceKey || supabaseAnonKey)!,
   {
     auth: {
       persistSession: false,
-      storageKey: 'clickmemory-admin',
+      storageKey: STORAGE_KEY,
       autoRefreshToken: false
     }
   }

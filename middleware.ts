@@ -26,8 +26,8 @@ export async function middleware(request: NextRequest) {
           },
         },
         auth: {
-          persistSession: false,
-          storageKey: 'clickmemory-middleware'
+          persistSession: true,
+          storageKey: 'clickmemory-auth'
         }
       }
     )
@@ -37,10 +37,28 @@ export async function middleware(request: NextRequest) {
       setTimeout(() => reject(new Error('Middleware timeout')), 5000)
     })
 
-    // Refresh session if expired with timeout
-    const userPromise = supabase.auth.getUser()
+    // Get and refresh session with timeout
+    const sessionPromise = supabase.auth.getSession()
     
-    await Promise.race([userPromise, timeoutPromise])
+    const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
+    
+    // If session exists but is close to expiring, refresh it
+    if (session?.access_token) {
+      const expiresAt = session.expires_at
+      const now = Math.floor(Date.now() / 1000)
+      const timeUntilExpiry = expiresAt - now
+      
+      // Refresh if session expires in less than 5 minutes
+      if (timeUntilExpiry < 300) {
+        try {
+          const refreshPromise = supabase.auth.refreshSession()
+          await Promise.race([refreshPromise, timeoutPromise])
+        } catch (refreshError) {
+          console.error('Session refresh failed:', refreshError)
+          // Continue with existing session even if refresh fails
+        }
+      }
+    }
 
     return supabaseResponse
   } catch (error) {
