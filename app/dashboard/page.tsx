@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
-import { Plus, Search, Filter } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import Link from 'next/link'
 import SnippetCard from '@/components/SnippetCard'
 
@@ -14,7 +14,6 @@ export default function DashboardPage() {
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all')
 
   const loadSnippets = useCallback(async () => {
     if (!supabase || !user) return
@@ -45,14 +44,8 @@ export default function DashboardPage() {
   }, [user, supabase, loadSnippets, checkPendingShares])
 
   const filteredSnippets = snippets.filter(snippet => {
-    const matchesSearch = snippet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         snippet.content.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesFilter = filter === 'all' || 
-                         (filter === 'public' && snippet.is_public) ||
-                         (filter === 'private' && !snippet.is_public)
-    
-    return matchesSearch && matchesFilter
+    return snippet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           snippet.content.toLowerCase().includes(searchTerm.toLowerCase())
   })
 
   if (loading) {
@@ -79,29 +72,17 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
-        <div className="relative flex-1">
+      {/* Search */}
+      <div className="mb-8">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary h-4 w-4" />
           <input
             type="text"
             placeholder="Search snippets..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted"
+            className="w-full pl-10 pr-4 py-2 border border-custom rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary placeholder-text-muted"
           />
-        </div>
-        <div className="flex items-center space-x-2">
-          <Filter className="h-4 w-4 text-secondary" />
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as 'all' | 'public' | 'private')}
-            className="px-4 py-3 border border-custom rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary bg-card text-text-primary"
-          >
-            <option value="all">All Snippets</option>
-            <option value="public">Public Only</option>
-            <option value="private">Private Only</option>
-          </select>
         </div>
       </div>
 
@@ -110,15 +91,15 @@ export default function DashboardPage() {
         <div className="text-center py-12">
           <div className="text-6xl mb-4">📝</div>
           <h3 className="text-xl font-semibold text-text-primary mb-2">
-            {searchTerm || filter !== 'all' ? 'No snippets found' : 'No snippets yet'}
+            {searchTerm ? 'No snippets found' : 'No snippets yet'}
           </h3>
           <p className="text-secondary mb-6">
-            {searchTerm || filter !== 'all' 
-              ? 'Try adjusting your search or filter criteria'
+            {searchTerm 
+              ? 'Try adjusting your search criteria'
               : 'Create your first snippet to get started'
             }
           </p>
-          {!searchTerm && filter === 'all' && (
+          {!searchTerm && (
             <Link
               href="/dashboard/new"
               className="inline-flex items-center px-6 py-3 bg-gradient-primary text-white rounded-2xl hover:bg-primary-hover transition-all font-semibold"

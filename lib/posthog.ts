@@ -22,10 +22,16 @@ export const identifyUser = (userId: string, email?: string, properties?: Record
     // Only run on client side
     import('posthog-js').then((posthog) => {
       const client = posthog.default
-      client.identify(userId, {
-        email,
-        ...properties
-      })
+      try {
+        client.identify(userId, {
+          email,
+          ...properties
+        })
+      } catch (error) {
+        console.error('PostHog identify error:', error)
+      }
+    }).catch(error => {
+      console.error('PostHog client error:', error)
     })
   }
 }
@@ -36,7 +42,11 @@ export const trackEvent = (eventName: string, properties?: Record<string, unknow
     // Only run on client side
     import('posthog-js').then((posthog) => {
       const client = posthog.default
-      client.capture(eventName, properties)
+      try {
+        client.capture(eventName, properties)
+      } catch (error) {
+        console.error('PostHog capture error:', error)
+      }
     }).catch(error => {
       console.error('PostHog client error:', error)
     })

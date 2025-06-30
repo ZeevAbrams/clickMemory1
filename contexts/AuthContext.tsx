@@ -1,8 +1,8 @@
 'use client'
 import { createContext, useContext, useEffect, useState, useRef } from 'react'
-import { User, Session } from '@supabase/supabase-js'
+import { User, Session, Subscription } from '@supabase/supabase-js'
 import { useSupabase } from './SupabaseContext'
-import { trackEvent } from '@/lib/posthog'
+import { trackEvent, identifyUser } from '@/lib/posthog'
 import type { PendingShare } from '@/types/database'
 
 interface AuthContextType {
@@ -28,30 +28,14 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { supabase, loading: supabaseLoading } = useSupabase()
+  const { supabase, loading: supabaseLoading, getSession, refreshSession, clearSession, setupAutoRefresh } = useSupabase()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
   const [pendingSharesAccepted, setPendingSharesAccepted] = useState(0)
   const [authLoading, setAuthLoading] = useState(true)
-  const subscriptionRef = useRef<any>(null)
-
-  // Clear session data
-  const clearSession = () => {
-    if (typeof window !== 'undefined') {
-      // Clear all potential storage locations
-      localStorage.removeItem('clickmemory-auth')
-      sessionStorage.clear()
-      
-      // Also clear any Supabase-related items
-      const keys = Object.keys(localStorage)
-      keys.forEach(key => {
-        if (key.includes('supabase') || key.includes('clickmemory')) {
-          localStorage.removeItem(key)
-        }
-      })
-    }
-  }
+  const subscriptionRef = useRef<Subscription | null>(null)
+  const mountedRef = useRef(false)
 
   // Check for pending shares when user signs up
   const checkPendingShares = async (user: User) => {
@@ -157,40 +141,80 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    mountedRef.current = true
+    
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!supabase || supabaseLoading) return
 
-    // Get initial session
+    // Get initial session using unified session management
     const getInitialSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-        if (error) {
-          console.error('Error getting initial session:', error)
-        } else if (session) {
+        const session = await getSession()
+        if (session && mountedRef.current) {
           setUser(session.user)
           setSession(session)
+          // Set up auto-refresh for the session
+          setupAutoRefresh(session)
+          
+          // Identify user in PostHog
+          identifyUser(session.user.id, session.user.email || undefined, {
+            email: session.user.email,
+            created_at: session.user.created_at
+          })
+          
+          // Track login
+          trackEvent('user_logged_in', {
+            userId: session.user.id,
+            email: session.user.email
+          })
         }
-        setLoading(false)
-        setAuthLoading(false)
+        if (mountedRef.current) {
+          setLoading(false)
+          setAuthLoading(false)
+        }
       } catch (error) {
         console.error('AuthContext: Error in getInitialSession:', error)
-        setLoading(false)
-        setAuthLoading(false)
+        if (mountedRef.current) {
+          setLoading(false)
+          setAuthLoading(false)
+        }
       }
     }
 
     getInitialSession()
 
-    // Listen for auth changes - only set up one subscription
+    // Listen for auth changes - ONLY ONE subscription
     if (supabase && !subscriptionRef.current) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           console.log('Auth state change:', event, session ? 'has session' : 'no session')
+          
+          if (!mountedRef.current) return
           
           if (event === 'SIGNED_IN' && session) {
             setUser(session.user)
             setSession(session)
             setLoading(false)
             setAuthLoading(false)
+            // Set up auto-refresh for new session
+            setupAutoRefresh(session)
+            
+            // Identify user in PostHog
+            identifyUser(session.user.id, session.user.email || undefined, {
+              email: session.user.email,
+              created_at: session.user.created_at
+            })
+            
+            // Track login
+            trackEvent('user_logged_in', {
+              userId: session.user.id,
+              email: session.user.email
+            })
           } else if (event === 'SIGNED_OUT') {
             setUser(null)
             setSession(null)
@@ -202,11 +226,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session)
             setLoading(false)
             setAuthLoading(false)
+            // Set up auto-refresh for refreshed session
+            setupAutoRefresh(session)
           } else if (event === 'USER_UPDATED' && session) {
             setUser(session.user)
             setSession(session)
             setLoading(false)
             setAuthLoading(false)
+            // Set up auto-refresh for updated session
+            setupAutoRefresh(session)
           }
         }
       )
@@ -221,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscriptionRef.current = null
       }
     }
-  }, [supabase, supabaseLoading])
+  }, [supabase, supabaseLoading, getSession, clearSession, setupAutoRefresh])
 
   const signOut = async () => {
     try {
@@ -239,7 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Track sign out
       trackEvent('user_logged_out')
       
-      // Clear session data
+      // Clear session data using unified function
       clearSession()
     } catch (error) {
       console.error('AuthContext: Failed to sign out:', error)

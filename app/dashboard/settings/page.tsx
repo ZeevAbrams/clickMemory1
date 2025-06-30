@@ -1,28 +1,33 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSupabase } from '@/contexts/SupabaseContext'
 import { UserApiKey } from '@/types/database'
 import { Copy, Trash2, Key, AlertTriangle } from 'lucide-react'
 
 export default function SettingsPage() {
   const { user, loading: authLoading, session } = useAuth()
+  const { refreshSession } = useSupabase()
   const [apiKeys, setApiKeys] = useState<UserApiKey[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [newKeyName, setNewKeyName] = useState('Chrome Extension')
   const [showApiKey, setShowApiKey] = useState<string | null>(null)
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
+  const [isCsrfError, setIsCsrfError] = useState(false)
   const [initialized, setInitialized] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
 
   const generateCSRFToken = useCallback(async () => {
-    if (!user || !session) return; // Don't generate if no user or session
+    if (!user || !session) return;
     
+    setIsCsrfError(false); // Reset error state on new attempt
     try {
       const token = session.access_token
       
       if (!token) {
         console.error('No session token available for CSRF generation')
+        setIsCsrfError(true);
         return
       }
 
@@ -35,82 +40,82 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json()
         setCsrfToken(data.csrfToken)
-      } else if (response.status === 401) {
-        // Session expired - clear token but don't redirect
-        console.error('Session expired during CSRF generation')
-        setCsrfToken(null)
+      } else {
+        console.error('Failed to generate CSRF token, status:', response.status)
+        setIsCsrfError(true);
+        // Clear token to prevent use of a stale token
+        setCsrfToken(null); 
       }
     } catch (error) {
       console.error('Error generating CSRF token:', error)
+      setIsCsrfError(true);
     }
   }, [user, session])
 
   const loadApiKeys = useCallback(async () => {
-    if (!user || !session) return; // Don't load if no user or session
+    if (!user || !session) return
     
     setLoading(true)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
-
     try {
       const token = session.access_token
       
       if (!token) {
         console.error('No session token available')
-        setLoading(false)
         return
       }
-
+      
       const response = await fetch('/api/keys', {
         method: 'GET',
         headers: { 
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        signal: controller.signal
+        }
       })
       
       if (response.ok) {
         const data = await response.json()
         setApiKeys(data.api_keys || [])
       } else if (response.status === 401) {
-        // Session expired - clear data but don't redirect
-        console.error('Session expired during API key fetch')
-        setApiKeys([])
+        console.log('Session expired while loading keys, attempting refresh...')
+        const refreshedSession = await refreshSession()
+        if (refreshedSession) {
+          const retryResponse = await fetch('/api/keys', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${refreshedSession.access_token}` }
+          })
+          if (retryResponse.ok) {
+            const data = await retryResponse.json()
+            setApiKeys(data.api_keys || [])
+          } else {
+            console.error('Failed to load API keys after refresh')
+          }
+        } else {
+          console.error('Failed to refresh session')
+        }
       } else {
-        console.error('Failed to load API keys, status:', response.status)
+        console.error('Failed to load API keys:', response.status)
       }
     } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        console.error('API key fetch timed out.')
-      } else {
-        console.error('Error loading API keys:', error)
-      }
+      console.error('Error loading API keys:', error)
     } finally {
-      clearTimeout(timeoutId)
       setLoading(false)
     }
-  }, [user, session])
+  }, [user, session, refreshSession])
 
   useEffect(() => {
-    // Wait for auth to finish loading AND have a user before initializing
-    // Also prevent multiple simultaneous initializations
     if (!authLoading && user && session && !initialized && !isInitializing) {
       setIsInitializing(true)
-      setInitialized(true)
       
-      // Add a small delay to ensure session is fully established
-      setTimeout(async () => {
-        try {
-          await loadApiKeys()
-          // Generate CSRF token after API keys are loaded
-          await generateCSRFToken()
-        } catch (error) {
-          console.error('Error during initialization:', error)
-        } finally {
-          setIsInitializing(false)
-        }
-      }, 200)
+      const initializePage = async () => {
+        // Generate CSRF token first, as it's critical for all actions.
+        await generateCSRFToken();
+        // Then load non-critical data.
+        await loadApiKeys();
+        
+        setInitialized(true);
+        setIsInitializing(false);
+      }
+      
+      initializePage();
     }
   }, [user, session, authLoading, initialized, isInitializing, generateCSRFToken, loadApiKeys])
 
@@ -145,7 +150,7 @@ export default function SettingsPage() {
 
   const generateApiKey = async () => {
     if (!csrfToken || !session) {
-      alert('Security token not available. Please refresh the page and try again.')
+      alert('A security token is missing. Please refresh the page and try again.')
       return
     }
 
@@ -155,6 +160,7 @@ export default function SettingsPage() {
       
       if (!token) {
         console.error('No session token available')
+        setGenerating(false);
         return
       }
       
@@ -172,20 +178,18 @@ export default function SettingsPage() {
       
       if (response.ok) {
         setShowApiKey(data.api_key)
-        setNewKeyName('Chrome Extension')
-        loadApiKeys()
-        // Generate new CSRF token after successful operation
-        generateCSRFToken()
-      } else if (response.status === 401) {
-        // Session expired - clear token but don't redirect
-        console.error('Session expired during API key generation')
-        setCsrfToken(null)
-        alert('Session expired. Please refresh the page and try again.')
+        setNewKeyName('Chrome Extension') // Reset form
+        await loadApiKeys() // Refresh list
+        await generateCSRFToken() // Generate new CSRF token for next action
       } else {
-        alert('Failed to generate API key: ' + data.error)
+        alert('Failed to generate API key: ' + (data.error || 'Unknown error'))
+        if (response.status === 401 || response.status === 403) {
+          // If auth/CSRF fails, regenerate a new token for the next attempt.
+          await generateCSRFToken();
+        }
       }
     } catch {
-      alert('Error generating API key')
+      alert('An unexpected error occurred while generating the API key.')
     } finally {
       setGenerating(false)
     }
@@ -196,8 +200,8 @@ export default function SettingsPage() {
       return
     }
 
-    if (!session) {
-      console.error('No session available')
+    if (!csrfToken || !session) {
+      alert('A security token is missing. Please refresh the page and try again.')
       return
     }
 
@@ -214,24 +218,23 @@ export default function SettingsPage() {
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'X-CSRF-Token': csrfToken || ''
+          'X-CSRF-Token': csrfToken
         }
       })
       
       if (response.ok) {
-        loadApiKeys()
-        // Generate new CSRF token after successful operation
-        generateCSRFToken()
-      } else if (response.status === 401) {
-        // Session expired - clear token but don't redirect
-        console.error('Session expired during API key revocation')
-        setCsrfToken(null)
-        alert('Session expired. Please refresh the page and try again.')
+        await loadApiKeys() // Refresh list
+        await generateCSRFToken() // Generate new CSRF token for next action
       } else {
-        alert('Failed to revoke API key')
+        const data = await response.json().catch(() => ({}));
+        alert('Failed to revoke API key: ' + (data.error || 'Unknown error'))
+        if (response.status === 401 || response.status === 403) {
+          // If auth/CSRF fails, regenerate a new token for the next attempt.
+          await generateCSRFToken();
+        }
       }
     } catch {
-      alert('Error revoking API key')
+      alert('An unexpected error occurred while revoking the API key.')
     }
   }
 
@@ -272,7 +275,7 @@ export default function SettingsPage() {
               />
               <button
                 onClick={generateApiKey}
-                disabled={generating || !csrfToken}
+                disabled={generating || isCsrfError || !csrfToken}
                 className="px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all"
               >
                 {generating ? (
@@ -364,7 +367,8 @@ export default function SettingsPage() {
                     </div>
                     <button
                       onClick={() => revokeApiKey(key.id)}
-                      className="px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all flex items-center"
+                      disabled={isCsrfError}
+                      className="px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 className="h-4 w-4 mr-1" />
                       Revoke

@@ -4,6 +4,7 @@ import { SupabaseProvider } from '@/contexts/SupabaseContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import PendingSharesNotification from '@/components/PendingSharesNotification'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import PostHogProvider from '@/components/PostHogProvider'
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,12 +38,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <SupabaseProvider>
-            <AuthProvider>
-              <PendingSharesNotification />
-              {children}
-            </AuthProvider>
-          </SupabaseProvider>
+          <PostHogProvider>
+            <SupabaseProvider>
+              <AuthProvider>
+                <PendingSharesNotification />
+                {children}
+              </AuthProvider>
+            </SupabaseProvider>
+          </PostHogProvider>
         </ErrorBoundary>
       </body>
     </html>

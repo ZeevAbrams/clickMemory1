@@ -178,4 +178,53 @@ export const withTimeout = <T>(promise: Promise<T>, ms: number = 10000): Promise
 // Database timeout wrapper
 export const withDatabaseTimeout = <T>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
   return withTimeout(promise, ms)
+}
+
+import { NextRequest } from 'next/server';
+import { validateCSRFToken } from './csrf';
+import { supabaseAdmin } from './supabase';
+
+interface AuthResult {
+  user: { id: string; email?: string } | null;
+  error: string | null;
+}
+
+/**
+ * A middleware-like function to validate both the user's JWT and a CSRF token.
+ * This centralizes the authentication and CSRF protection logic for API routes.
+ *
+ * @param request The incoming NextRequest.
+ * @returns A promise that resolves to an object containing the user or an error.
+ */
+export async function validateRequest(request: NextRequest): Promise<AuthResult> {
+  // 1. Validate JWT from Authorization header
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { user: null, error: 'Authorization header with Bearer token required' };
+  }
+  const token = authHeader.replace('Bearer ', '');
+  
+  if (!supabaseAdmin) {
+    return { user: null, error: 'Service configuration error' };
+  }
+  
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !user) {
+    return { user: null, error: 'Invalid or expired token. Please log in again.' };
+  }
+
+  // 2. Validate CSRF token from X-CSRF-Token header
+  const csrfToken = request.headers.get('X-CSRF-Token');
+  if (!csrfToken) {
+    return { user: null, error: 'CSRF token is missing.' };
+  }
+
+  const isCsrfValid = await validateCSRFToken(user.id, csrfToken);
+  if (!isCsrfValid) {
+    return { user: null, error: 'Invalid CSRF token.' };
+  }
+
+  // 3. If both are valid, return the user
+  return { user, error: null };
 } 
