@@ -96,7 +96,7 @@ export default function NewSnippetPage() {
               Add This Template
             </button>
           </div>
-          <p className="text-sm text-muted italic mb-4">These can be chained together</p>
+          <p className="text-sm text-muted italic mb-4">These can be chained together (check out iteraite.com for help)</p>
           <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
             {SNIPPET_IDEAS.map((idea, idx) => (
               <div key={idea.title} className="mb-2 border-b border-custom pb-2">
