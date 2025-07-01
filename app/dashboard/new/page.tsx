@@ -1,6 +1,6 @@
 'use client'
-import SnippetForm from '@/components/SnippetForm'
-import { useState, useEffect } from 'react'
+import SnippetForm, { SnippetFormRef } from '@/components/SnippetForm'
+import { useState, useEffect, useRef } from 'react'
 import { SNIPPET_IDEAS, SNIPPET_CONTENT_CHAR_LIMIT } from '@/lib/snippetIdeas'
 import { useSupabase } from '@/contexts/SupabaseContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,6 +13,7 @@ export default function NewSnippetPage() {
   const router = useRouter()
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const formRef = useRef<SnippetFormRef | null>(null)
 
   // Fetch current snippet count
   useEffect(() => {
@@ -49,7 +50,19 @@ export default function NewSnippetPage() {
 
   // This will be called by the sidebar button to add content to the form
   const handleUseTemplate = () => {
-    // TODO: Implement template usage
+    if (expandedIndex !== null && formRef.current) {
+      const selectedIdea = SNIPPET_IDEAS[expandedIndex]
+      
+      // Set the form data with the selected template
+      formRef.current.setFormData({
+        title: selectedIdea.title,
+        system_role: '',
+        content: selectedIdea.content
+      })
+      
+      // Close the expanded template
+      setExpandedIndex(null)
+    }
   }
 
   // Handle form save
@@ -75,6 +88,7 @@ export default function NewSnippetPage() {
       {/* Main Form */}
       <div className="flex-1">
         <SnippetForm
+          ref={formRef}
           onSave={handleSave}
           onCancel={handleCancel}
         />
@@ -87,11 +101,7 @@ export default function NewSnippetPage() {
             <button
               className="bg-gradient-primary text-white px-4 py-2 rounded-lg font-semibold shadow-glow hover:bg-primary-hover transition-all disabled:opacity-50"
               disabled={expandedIndex === null}
-              onClick={() => {
-                if (expandedIndex !== null) {
-                  handleUseTemplate()
-                }
-              }}
+              onClick={handleUseTemplate}
             >
               Add This Template
             </button>

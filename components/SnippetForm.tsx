@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSupabase } from '@/contexts/SupabaseContext'
 import { Snippet } from '@/types/database'
@@ -11,11 +11,15 @@ interface SnippetFormProps {
   onCancel: () => void
 }
 
+export interface SnippetFormRef {
+  setFormData: (data: { title: string; system_role: string; content: string }) => void
+}
+
 const titleCharLimit = 100
 const roleCharLimit = 200
 const contentCharLimit = 2000
 
-export default function SnippetForm({ snippet, onSave, onCancel }: SnippetFormProps) {
+const SnippetForm = forwardRef<SnippetFormRef, SnippetFormProps>(({ snippet, onSave, onCancel }, ref) => {
   const { supabase } = useSupabase()
   const { user } = useAuth()
   const [formData, setFormData] = useState({
@@ -27,6 +31,13 @@ export default function SnippetForm({ snippet, onSave, onCancel }: SnippetFormPr
   const [error, setError] = useState('')
 
   const isEdit = !!snippet
+
+  // Expose setFormData method to parent component
+  useImperativeHandle(ref, () => ({
+    setFormData: (data: { title: string; system_role: string; content: string }) => {
+      setFormData(data)
+    }
+  }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -191,4 +202,8 @@ export default function SnippetForm({ snippet, onSave, onCancel }: SnippetFormPr
       </div>
     </div>
   )
-} 
+})
+
+SnippetForm.displayName = 'SnippetForm'
+
+export default SnippetForm 
