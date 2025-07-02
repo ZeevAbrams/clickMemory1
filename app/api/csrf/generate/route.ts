@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Generate CSRF token
-    const csrfToken = generateCSRFToken(user.id)
+    const csrfToken = await generateCSRFToken(user.id)
     
     return NextResponse.json({ 
       csrfToken,
