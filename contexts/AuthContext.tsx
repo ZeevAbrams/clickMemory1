@@ -253,25 +253,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      if (!supabase) {
-        console.error('Supabase client not available for sign out')
-        throw new Error('Authentication service not available')
-      }
-
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error('AuthContext: Error during sign out:', error)
-        throw error
-      }
-      
-      // Track sign out
+      // Track sign out first (before any potential errors)
       trackEvent('user_logged_out')
+      
+      // Clear local state immediately
+      setUser(null)
+      setSession(null)
+      setLoading(false)
+      setAuthLoading(false)
       
       // Clear session data using unified function
       clearSession()
+      
+      // Try to sign out from Supabase if available
+      if (supabase) {
+        try {
+          const { error } = await supabase.auth.signOut()
+          if (error) {
+            console.warn('AuthContext: Warning during sign out:', error)
+            // Don't throw error - we've already cleared local state
+          }
+        } catch (signOutError) {
+          console.warn('AuthContext: Warning during Supabase sign out:', signOutError)
+          // Don't throw error - we've already cleared local state
+        }
+      }
+      
+      // Redirect to home page or login page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
     } catch (error) {
       console.error('AuthContext: Failed to sign out:', error)
-      throw error
+      // Even if there's an error, try to clear local state
+      setUser(null)
+      setSession(null)
+      setLoading(false)
+      setAuthLoading(false)
+      clearSession()
+      
+      // Redirect to home page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
     }
   }
 

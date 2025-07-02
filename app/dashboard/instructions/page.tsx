@@ -105,7 +105,7 @@ export default function InstructionsPage() {
                 Download and install the ClickMemory browser extension to access your snippets from any webpage.
               </p>
               <a
-                href="https://github.com/ZeevAbrams/clickMemory_extension"
+                href="https://chromewebstore.google.com/detail/clickmemory-text-snippets/ciimkmhbiefocpbfpjmlkpijgcakbfnp"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center px-4 py-2 bg-gradient-primary text-white rounded-xl hover:bg-primary-hover transition-all shadow-glow"
@@ -133,7 +133,7 @@ export default function InstructionsPage() {
               </p>
               <div className="bg-secondary-light rounded-xl p-4 border border-custom">
                 <p className="text-sm text-secondary">
-                  <strong>Pro tip:</strong> Once configured, you can right-click on any webpage and select your snippet from the context menu for instant access.
+                  <strong>Paste with ease:</strong> Once configured, you can right-click on any webpage and select your snippet from the context menu for instant access.
                 </p>
               </div>
             </div>

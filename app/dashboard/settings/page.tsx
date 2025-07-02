@@ -379,6 +379,29 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+        
+        {/* Terms and Privacy Links */}
+        <div className="text-center mt-12 pt-8 border-t border-custom/20">
+          <div className="flex justify-center items-center gap-6 text-xs text-secondary">
+            <a 
+              href="/terms" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-primary transition-colors"
+            >
+              Terms & Conditions
+            </a>
+            <span className="text-custom/40">•</span>
+            <a 
+              href="/privacy" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-primary transition-colors"
+            >
+              Privacy Policy
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   )

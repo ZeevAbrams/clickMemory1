@@ -157,7 +157,7 @@ export default function SnippetCard({ snippet, onUpdate }: SnippetCardProps) {
         .eq('id', snippet.id)
 
       if (error) {
-        if (error.message.includes('Maximum 5 snippets allowed')) {
+        if (error.message.includes(`Maximum ${CONTEXT_MENU_SNIPPET_LIMIT} snippets allowed`)) {
           alert(`Maximum ${CONTEXT_MENU_SNIPPET_LIMIT} snippets allowed in context menu. Please uncheck another snippet first.`)
         } else {
           throw error

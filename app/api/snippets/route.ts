@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { TOTAL_SNIPPET_LIMIT } from '@/lib/snippetIdeas'
 
 // Type for Supabase API key response
 interface ApiKeyData {
@@ -241,8 +242,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create snippet' }, { status: 500 })
     }
 
-    if (existingSnippets && existingSnippets.length >= 20) {
-      return NextResponse.json({ error: 'Maximum 20 snippets allowed' }, { status: 400 })
+    if (existingSnippets && existingSnippets.length >= TOTAL_SNIPPET_LIMIT) {
+      return NextResponse.json({ error: `Maximum ${TOTAL_SNIPPET_LIMIT} snippets allowed` }, { status: 400 })
     }
 
     // Create new snippet
